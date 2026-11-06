@@ -1,0 +1,6 @@
+{
+  "name": "مدیریت کاپ PES 2021 | PES 2021 Group Tournament",
+  "description": "سامانه زنده و هوشمند مدیریت، قرعه‌کشی، جدول رده‌بندی و براکت حذفی کاپ گروهی PES 2021",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

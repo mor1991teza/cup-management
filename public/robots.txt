@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /admin-live
+Disallow: /admin-dashboard
+Disallow: /admin-*
+Disallow: /api/
