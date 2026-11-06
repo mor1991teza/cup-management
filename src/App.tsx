@@ -2215,6 +2215,7 @@ export default function App() {
         totalPlayersCount={state.players.length}
         hasStartedAnyMatch={hasStartedAnyMatch || state.status === 'knockout' || state.status === 'finished'}
         advancementRule={state.advancementRule}
+        gameType={state.gameType || 'pes'}
         onChangeNumberOfGroups={handleChangeNumberOfGroups}
         onShuffleGroups={handleShuffleGroups}
         onSwapPlayerGroup={handleSwapPlayerGroup}

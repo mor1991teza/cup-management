@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Group, Player } from '../types/tournament';
+import { Group, Player, GameType } from '../types/tournament';
 import {
   X,
   ArrowLeftRight,
@@ -32,6 +32,7 @@ interface EditGroupsModalProps {
   totalPlayersCount: number;
   hasStartedAnyMatch: boolean;
   advancementRule?: 'bestThirds' | 'proportional' | 'manual' | null;
+  gameType?: GameType;
   onChangeNumberOfGroups: (newCount: number, rule?: 'bestThirds' | 'proportional' | 'manual' | null) => void;
   onShuffleGroups: () => void;
   onSwapPlayerGroup: (playerId: string, targetGroupId: string) => void;
@@ -51,6 +52,7 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
   totalPlayersCount,
   hasStartedAnyMatch,
   advancementRule = 'bestThirds',
+  gameType = 'pes',
   onChangeNumberOfGroups,
   onShuffleGroups,
   onSwapPlayerGroup,
@@ -120,10 +122,13 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
     }, 4000);
   };
 
+  const isBilliards = gameType === 'billiards';
+
   const handleAddNewPlayer = (e: React.FormEvent) => {
     e.preventDefault();
     if (hasStartedAnyMatch) return;
-    const trimmed = newPlayerName.trim();
+    const rawTrimmed = newPlayerName.trim();
+    const trimmed = isBilliards ? rawTrimmed.replace(/\s*\([^)]*\)/g, '').trim() : rawTrimmed;
     if (!trimmed) {
       sound.playClick();
       showFeedback('لطفاً نام بازیکن را وارد کنید.', 'error');
@@ -139,7 +144,7 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
     sound.playWhistle();
     onAddPlayer({
       name: trimmed,
-      team: newPlayerTeam.trim() || undefined,
+      team: isBilliards ? undefined : (newPlayerTeam.trim() || undefined),
       targetGroupId: targetGroupSelect === 'auto' ? undefined : targetGroupSelect,
     });
 
@@ -441,21 +446,27 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
 
           {/* Section 2: Add New Player */}
           {!hasStartedAnyMatch && (
-            <div className="p-3.5 sm:p-4 rounded-xl bg-[#15060c] border border-rose-950/90 space-y-3">
+            <div className={`p-3.5 sm:p-4 rounded-xl space-y-3 border ${
+              isBilliards
+                ? 'bg-[#051a10] border-emerald-900/80'
+                : 'bg-[#15060c] border-rose-950/90'
+            }`}>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-white">
-                  <UserPlus className="w-4 h-4 text-rose-400" />
-                  <span>افزودن بازیکن جدید به تورنمنت</span>
+                  <UserPlus className={`w-4 h-4 ${isBilliards ? 'text-emerald-400' : 'text-rose-400'}`} />
+                  <span>{isBilliards ? 'افزودن بازیکن جدید به تورنمنت بیلیارد' : 'افزودن بازیکن جدید به تورنمنت'}</span>
                 </div>
                 <span className="text-[11px] text-slate-400">
-                  تعداد فعلی: <span className="font-mono font-bold text-rose-300">{totalPlayersCount}</span> بازیکن
+                  تعداد فعلی: <span className={`font-mono font-bold ${isBilliards ? 'text-emerald-300' : 'text-rose-300'}`}>{totalPlayersCount}</span> بازیکن
                 </span>
               </div>
 
               <form onSubmit={handleAddNewPlayer} className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
-                <div className="sm:col-span-4">
+                <div className={isBilliards ? 'sm:col-span-6' : 'sm:col-span-4'}>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] text-slate-300">نام بازیکن / گیمر *</label>
+                    <label className="block text-[11px] text-slate-300">
+                      {isBilliards ? 'نام بازیکن بیلیارد *' : 'نام بازیکن / گیمر *'}
+                    </label>
                     {isNameDuplicate && (
                       <span className="text-[10px] text-rose-400 font-bold flex items-center gap-1 animate-pulse">
                         <AlertCircle className="w-3 h-3" />
@@ -467,32 +478,42 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
                     type="text"
                     value={newPlayerName}
                     onChange={(e) => setNewPlayerName(e.target.value)}
-                    placeholder="مثال: سامان"
-                    className={`w-full bg-[#0d0407] border rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 outline-none transition-all ${
+                    placeholder={isBilliards ? 'مثال: آرش' : 'مثال: سامان'}
+                    className={`w-full border rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 outline-none transition-all ${
+                      isBilliards
+                        ? 'bg-[#03150c] border-emerald-800/80 focus:border-emerald-400'
+                        : 'bg-[#0d0407] border-slate-700 focus:border-rose-500'
+                    } ${
                       isNameDuplicate
                         ? 'border-rose-500 focus:ring-1 focus:ring-rose-500 bg-rose-950/20 text-rose-200'
-                        : 'border-slate-700 focus:border-rose-500'
+                        : ''
                     }`}
                   />
                 </div>
 
-                <div className="sm:col-span-3">
-                  <label className="block text-[11px] text-slate-300 mb-1">نام تیم در PES 2021 (اختیاری)</label>
-                  <input
-                    type="text"
-                    value={newPlayerTeam}
-                    onChange={(e) => setNewPlayerTeam(e.target.value)}
-                    placeholder="مثال: یوونتوس"
-                    className="w-full bg-[#0d0407] border border-slate-700 focus:border-rose-500 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 outline-none transition-all"
-                  />
-                </div>
+                {!isBilliards && (
+                  <div className="sm:col-span-3">
+                    <label className="block text-[11px] text-slate-300 mb-1">نام تیم در PES 2021 (اختیاری)</label>
+                    <input
+                      type="text"
+                      value={newPlayerTeam}
+                      onChange={(e) => setNewPlayerTeam(e.target.value)}
+                      placeholder="مثال: یوونتوس"
+                      className="w-full bg-[#0d0407] border border-slate-700 focus:border-rose-500 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 outline-none transition-all"
+                    />
+                  </div>
+                )}
 
-                <div className="sm:col-span-3">
+                <div className={isBilliards ? 'sm:col-span-4' : 'sm:col-span-3'}>
                   <label className="block text-[11px] text-slate-300 mb-1">گروه مقصد</label>
                   <select
                     value={targetGroupSelect}
                     onChange={(e) => setTargetGroupSelect(e.target.value)}
-                    className="w-full bg-[#0d0407] border border-slate-700 focus:border-rose-500 rounded-lg px-2.5 py-2 text-xs text-slate-200 outline-none cursor-pointer"
+                    className={`w-full border rounded-lg px-2.5 py-2 text-xs text-slate-200 outline-none cursor-pointer ${
+                      isBilliards
+                        ? 'bg-[#03150c] border-emerald-800/80 focus:border-emerald-400'
+                        : 'bg-[#0d0407] border-slate-700 focus:border-rose-500'
+                    }`}
                   >
                     <option value="auto">تخصیص خودکار (متوازن‌ترین گروه)</option>
                     {groups.map((g) => (
@@ -510,6 +531,8 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
                     className={`w-full py-2 px-3 text-white font-bold text-xs rounded-lg transition-all shadow-md flex items-center justify-center gap-1.5 ${
                       isNameDuplicate || !newPlayerName.trim()
                         ? 'bg-slate-850 text-slate-500 border border-slate-800 cursor-not-allowed opacity-50 shadow-none'
+                        : isBilliards
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 shadow-emerald-950/50 cursor-pointer'
                         : 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 shadow-rose-950/50 cursor-pointer'
                     }`}
                   >
@@ -532,7 +555,7 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
               {selectedPlayer && (
                 <div className="flex items-center gap-2 text-xs">
                   <span className="text-emerald-300 font-bold bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-800/60">
-                    انتخاب شده برای جابجایی: {selectedPlayer.name} ({selectedPlayerGroup?.name})
+                    انتخاب شده برای جابجایی: {isBilliards ? selectedPlayer.name.replace(/\s*\([^)]*\)/g, '').trim() : selectedPlayer.name} ({selectedPlayerGroup?.name})
                   </span>
                   <button
                     type="button"
@@ -629,6 +652,10 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
                         {group.playerIds.map((pid) => {
                           const player = playersMap.get(pid);
                           const isSelected = selectedPlayerId === pid;
+                          const rawPlayerName = player?.name || 'ناشناس';
+                          const playerName = isBilliards
+                            ? rawPlayerName.replace(/\s*\([^)]*\)/g, '').trim()
+                            : rawPlayerName;
 
                           return (
                             <div
@@ -644,12 +671,14 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
                                   ? 'bg-[#1a0810]/40 text-slate-400 border border-transparent'
                                   : isSelected
                                   ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/80 shadow-sm cursor-pointer'
+                                  : isBilliards
+                                  ? 'bg-[#051a10] text-slate-200 hover:bg-[#072416] hover:text-white border border-emerald-900/60 cursor-pointer'
                                   : 'bg-[#18070e] text-slate-200 hover:bg-[#240a15] hover:text-white border border-rose-950/60 cursor-pointer'
                               }`}
                             >
                               <div className="truncate min-w-0 pr-1">
-                                <span className="font-bold">{player?.name || 'ناشناس'}</span>
-                                {player?.team && (
+                                <span className="font-bold">{playerName}</span>
+                                {!isBilliards && player?.team && (
                                   <span className="text-[10px] text-slate-400 block truncate">
                                     {player.team}
                                   </span>
@@ -662,7 +691,7 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
                                 {!hasStartedAnyMatch && (
                                   <button
                                     type="button"
-                                    title={`حذف بازیکن «${player?.name || 'ناشناس'}»`}
+                                    title={`حذف بازیکن «${playerName}»`}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleRemovePlayer(pid);
