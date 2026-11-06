@@ -39,7 +39,7 @@ import { compressAndResizeImage } from '../utils/image';
 
 interface PlayerFormProps {
   players: Player[];
-  onAddPlayer: (player: { name: string; team?: string }) => void;
+  onAddPlayer: (player: { name: string; team?: string; uniqueId?: string }) => void;
   onAddBulkPlayers: (names: string[]) => void;
   onRemovePlayer: (id: string) => void;
   onClearAllPlayers: () => void;
@@ -111,6 +111,7 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
   };
 
   const [singleName, setSingleName] = useState('');
+  const [singleUniqueId, setSingleUniqueId] = useState('');
   const [singleTeam, setSingleTeam] = useState('');
   const [bulkText, setBulkText] = useState('');
   const [isBulkOpen, setIsBulkOpen] = useState(false);
@@ -243,6 +244,16 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
     return name.trim().replace(/\s+/g, ' ').toLowerCase();
   };
 
+  // محاسبه تعداد سهم‌های هر شناسه یکتا در لیست بازیکنان
+  const slotCountsMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    players.forEach((p) => {
+      const uid = p.uniqueId || normalizeName(p.name);
+      map[uid] = (map[uid] || 0) + 1;
+    });
+    return map;
+  }, [players]);
+
   const handleSingleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const rawTrimmed = singleName.trim();
@@ -261,24 +272,45 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
       return;
     }
 
-    // 🔴 بررسی تکراری بودن نام
-    const isDuplicate = players.some(
-      (p) => normalizeName(p.name) === normalizeName(trimmedName)
-    );
+    let effectiveUniqueId: string | undefined = undefined;
+    let finalName = trimmedName;
 
-    if (isDuplicate) {
-      setErrorMsg('این نام قبلاً در لیست ثبت شده است. لطفاً نام دیگری وارد کنید.');
-      return;
+    if (selectedGameType === 'pes') {
+      const rawUid = singleUniqueId.trim();
+      effectiveUniqueId = rawUid ? rawUid.toLowerCase() : normalizeName(trimmedName);
+
+      // بررسی تعداد سهم‌های قبلی با این شناسه یکتا
+      const matchingPlayers = players.filter(
+        (p) => (p.uniqueId || normalizeName(p.name)) === effectiveUniqueId
+      );
+
+      if (matchingPlayers.length > 0) {
+        // اگر شناسه یکتا تکراری باشد، به نام نمایشی پسوند عددی داده می‌شود (مثلاً "علی ۲")
+        const baseName = trimmedName.replace(/\s+\d+$/, '').trim();
+        finalName = `${baseName} ${matchingPlayers.length + 1}`;
+      }
+    } else {
+      // در بیلیارد بررسی تکراری بودن نام به شکل ساده
+      const isDuplicate = players.some(
+        (p) => normalizeName(p.name) === normalizeName(trimmedName)
+      );
+
+      if (isDuplicate) {
+        setErrorMsg('این نام قبلاً در لیست ثبت شده است. لطفاً نام دیگری وارد کنید.');
+        return;
+      }
     }
 
     onAddPlayer({
-      name: trimmedName,
+      name: finalName,
       team: selectedGameType === 'billiards' ? undefined : (singleTeam.trim() || undefined),
+      uniqueId: effectiveUniqueId,
     });
     
     sound.playClick();
     setSingleName('');
     setSingleTeam('');
+    setSingleUniqueId('');
     setErrorMsg(null);
   };
 
@@ -912,7 +944,7 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
                         <label className="block text-xs text-app-text mb-1">نام بازیکن / گیمر *</label>
                         <input
@@ -920,6 +952,18 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                           value={singleName}
                           onChange={(e) => setSingleName(e.target.value)}
                           placeholder="مثال: علیرضا"
+                          className="w-full bg-app-bg border border-app-border focus:border-app-primary focus:ring-1 focus:ring-app-primary rounded-lg px-3 py-2 text-sm text-app-text placeholder-app-text-muted/60 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-app-text mb-1">
+                          شناسه یکتا (شماره تماس یا آیدی)
+                        </label>
+                        <input
+                          type="text"
+                          value={singleUniqueId}
+                          onChange={(e) => setSingleUniqueId(e.target.value)}
+                          placeholder="مثال: 09121234567"
                           className="w-full bg-app-bg border border-app-border focus:border-app-primary focus:ring-1 focus:ring-app-primary rounded-lg px-3 py-2 text-sm text-app-text placeholder-app-text-muted/60 outline-none transition-all"
                         />
                       </div>
@@ -2150,6 +2194,9 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                 ? p.name.replace(/\s*\([^)]*\)/g, '').trim()
                 : p.name;
               const displayTeam = selectedGameType === 'billiards' ? null : p.team;
+              const uid = p.uniqueId || normalizeName(p.name);
+              const totalSlots = slotCountsMap[uid] || 1;
+              const isMultiEntry = selectedGameType === 'pes' && totalSlots > 1;
 
               return (
                 <div
@@ -2157,6 +2204,8 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                   className={`flex items-center justify-between p-2.5 rounded-lg group transition-all text-app-text ${
                     selectedGameType === 'billiards'
                       ? 'bg-[#051a10] border border-emerald-900/60 hover:border-emerald-500/60'
+                      : isMultiEntry
+                      ? 'bg-amber-950/20 border border-amber-500/50 hover:border-amber-400'
                       : 'bg-app-bg border border-app-border hover:border-app-primary/60'
                   }`}
                 >
@@ -2164,13 +2213,26 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                     <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 text-xs font-mono font-bold ${
                       selectedGameType === 'billiards'
                         ? 'bg-emerald-900/40 border border-emerald-700/60 text-emerald-300'
+                        : isMultiEntry
+                        ? 'bg-amber-950 border border-amber-700/80 text-amber-300'
                         : 'bg-app-surface border border-app-border text-app-primary'
                     }`}>
                       {idx + 1}
                     </div>
                     <div className="truncate">
-                      <div className="text-xs font-bold text-app-text truncate">
-                        {displayName}
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="text-xs font-bold text-app-text truncate">
+                          {displayName}
+                        </span>
+                        {isMultiEntry && (
+                          <span
+                            className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/50 flex items-center gap-1 shrink-0"
+                            title={`این شخص دارای ${totalSlots} سهم در تورنمنت است`}
+                          >
+                            <Users className="w-3 h-3 text-amber-400" />
+                            {totalSlots} سهم
+                          </span>
+                        )}
                       </div>
                       {displayTeam && (
                         <div className="text-[10px] text-slate-400 truncate">

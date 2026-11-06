@@ -19,6 +19,7 @@ export interface Player {
   team?: string;
   color?: string;
   avatarUrl?: string;
+  uniqueId?: string; // شناسه یکتا (شماره تماس یا آیدی) جهت جلوگیری از برخورد سهم‌های یک فرد با خودش
 }
 
 export interface Group {

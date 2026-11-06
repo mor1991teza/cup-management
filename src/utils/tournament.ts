@@ -126,6 +126,109 @@ export function getKnockoutCountErrorMessage(count: number): string {
 }
 
 /**
+ * Helper to retrieve normalized uniqueId for a player
+ */
+export function getPlayerUniqueId(player?: Player): string {
+  if (!player) return '';
+  if (player.uniqueId && player.uniqueId.trim()) {
+    return player.uniqueId.trim().toLowerCase();
+  }
+  return player.name.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/**
+ * Spreads players with matching uniqueIds evenly across array.
+ */
+export function spreadPlayersByUniqueId(players: Player[]): Player[] {
+  if (players.length <= 1) return players;
+
+  const map = new Map<string, Player[]>();
+  for (const p of players) {
+    const key = getPlayerUniqueId(p);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(p);
+  }
+
+  // Shuffle buckets and items inside each bucket
+  const buckets = shuffleArray(Array.from(map.values()).map((b) => shuffleArray(b)));
+
+  const result: Player[] = [];
+  let itemsRemaining = true;
+  while (itemsRemaining) {
+    itemsRemaining = false;
+    for (const bucket of buckets) {
+      if (bucket.length > 0) {
+        result.push(bucket.pop()!);
+        itemsRemaining = true;
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Swaps paired elements so no pair (items[2i], items[2i+1]) shares the same uniqueId.
+ */
+export function avoidSelfMatches<T>(
+  items: T[],
+  getIdFunc: (item: T) => string
+): T[] {
+  const result = [...items];
+  const maxAttempts = 100;
+  let attempt = 0;
+  let hasSelfMatch = true;
+
+  while (hasSelfMatch && attempt < maxAttempts) {
+    hasSelfMatch = false;
+    attempt++;
+
+    for (let i = 0; i < result.length - 1; i += 2) {
+      const u1 = getIdFunc(result[i]);
+      const u2 = getIdFunc(result[i + 1]);
+
+      if (u1 && u2 && u1 === u2) {
+        hasSelfMatch = true;
+        let swapped = false;
+
+        for (let j = 0; j < result.length; j++) {
+          if (j === i || j === i + 1) continue;
+
+          const uJ = getIdFunc(result[j]);
+          if (uJ && uJ !== u1) {
+            const partnerJ = j % 2 === 0 ? j + 1 : j - 1;
+            const uPartnerJ = partnerJ < result.length ? getIdFunc(result[partnerJ]) : '';
+
+            if (!uPartnerJ || uPartnerJ !== u2) {
+              const temp = result[i + 1];
+              result[i + 1] = result[j];
+              result[j] = temp;
+              swapped = true;
+              break;
+            }
+          }
+        }
+
+        if (!swapped) {
+          for (let j = 0; j < result.length; j++) {
+            if (j === i || j === i + 1) continue;
+            const uJ = getIdFunc(result[j]);
+            if (uJ && uJ !== u1) {
+              const temp = result[i + 1];
+              result[i + 1] = result[j];
+              result[j] = temp;
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
  * Distribute players evenly into groups
  */
 export function distributePlayers(
@@ -133,7 +236,7 @@ export function distributePlayers(
   numGroups: number,
   advanceSettings?: Record<string, number>
 ): { groups: Group[]; groupMatches: Match[] } {
-  const shuffled = shuffleArray(players);
+  const spread = spreadPlayersByUniqueId(players);
   const groups: Group[] = [];
 
   for (let i = 0; i < numGroups; i++) {
@@ -152,7 +255,7 @@ export function distributePlayers(
   }
 
   // Round-robin distribution
-  shuffled.forEach((player, index) => {
+  spread.forEach((player, index) => {
     const groupIdx = index % numGroups;
     groups[groupIdx].playerIds.push(player.id);
   });
@@ -916,19 +1019,22 @@ export function generateDirectKnockoutInitialMatches(
   byePlayerIds: string[];
   totalRounds: number;
 } {
-  const shuffled = shuffleArray(players);
+  const spread = spreadPlayersByUniqueId(players);
   const { nextPowerOfTwo, numByes, totalRounds, playingCount } = calculateKnockoutTree(players.length);
 
   // بازیکنانی که استراحت دور اول (BYE) می‌گیرند و مستقیم به دور ۲ می‌روند
-  const byePlayerIds = shuffled.slice(0, numByes).map((p) => p.id);
-  const playingPlayers = shuffled.slice(numByes, numByes + playingCount);
+  const byePlayerIds = spread.slice(0, numByes).map((p) => p.id);
+  const playingPlayers = spread.slice(numByes, numByes + playingCount);
+
+  // 🔴 جلوگیری از برخورد سهم‌های یک فرد با خودش در دور اول
+  const adjustedPlayingPlayers = avoidSelfMatches(playingPlayers, (p) => getPlayerUniqueId(p));
 
   const round1Matches: Match[] = [];
   const roundLabel = getKnockoutRoundPersianLabel(nextPowerOfTwo);
 
-  for (let i = 0; i < playingPlayers.length; i += 2) {
-    const p1 = playingPlayers[i];
-    const p2 = playingPlayers[i + 1];
+  for (let i = 0; i < adjustedPlayingPlayers.length; i += 2) {
+    const p1 = adjustedPlayingPlayers[i];
+    const p2 = adjustedPlayingPlayers[i + 1];
     if (!p1 || !p2) break;
     const matchIndex = i / 2 + 1;
 
@@ -970,7 +1076,8 @@ export function generateNextKnockoutRoundMatches(
   currentRoundIndex: number,
   hasThirdPlaceMatch: boolean = true,
   isDoubleElim: boolean = false,
-  forceBo3?: boolean
+  forceBo3?: boolean,
+  playersMap?: Map<string, Player>
 ): {
   newMatches: Match[];
   isFinal: boolean;
@@ -1028,11 +1135,17 @@ export function generateNextKnockoutRoundMatches(
 
   // Shuffle the pool for pure random draw at each round!
   const shuffledPool = shuffleArray(advancingPool);
+
+  // 🔴 جلوگیری از برخورد سهم‌های یک فرد با خودش در مراحل حذفی بعدی
+  const adjustedPool = playersMap
+    ? avoidSelfMatches(shuffledPool, (item) => getPlayerUniqueId(playersMap.get(item.playerId)))
+    : shuffledPool;
+
   const nextRoundIndex = currentRoundIndex + 1;
   const newMatches: Match[] = [];
   const matchIsBo3 = forceBo3 !== undefined ? forceBo3 : isDoubleElim;
 
-  if (shuffledPool.length === 2) {
+  if (adjustedPool.length === 2) {
     // FINAL MATCH!
     const roundLabel = 'فینال قهرمانی (۲ تیم - ۱ مسابقه - ۱ قهرمان 🏆)';
     newMatches.push({
@@ -1043,10 +1156,10 @@ export function generateNextKnockoutRoundMatches(
       knockoutRound: 'final',
       knockoutRoundLabel: roundLabel,
       knockoutMatchIndex: 1,
-      homePlayerId: shuffledPool[0].playerId,
-      awayPlayerId: shuffledPool[1].playerId,
-      homeSourceMatchId: shuffledPool[0].sourceMatchId,
-      awaySourceMatchId: shuffledPool[1].sourceMatchId,
+      homePlayerId: adjustedPool[0].playerId,
+      awayPlayerId: adjustedPool[1].playerId,
+      homeSourceMatchId: adjustedPool[0].sourceMatchId,
+      awaySourceMatchId: adjustedPool[1].sourceMatchId,
       homeScore: matchIsBo3 ? 0 : null,
       awayScore: matchIsBo3 ? 0 : null,
       homeGamesWon: matchIsBo3 ? 0 : undefined,
@@ -1100,17 +1213,17 @@ export function generateNextKnockoutRoundMatches(
   }
 
   // Standard intermediate round (4, 8, 16, 32, 64)
-  const roundLabel = getKnockoutRoundPersianLabel(shuffledPool.length);
+  const roundLabel = getKnockoutRoundPersianLabel(adjustedPool.length);
   let roundType: KnockoutRoundType = 'quarter';
-  if (shuffledPool.length >= 64) roundType = 'roundOf64';
-  else if (shuffledPool.length >= 32) roundType = 'roundOf32';
-  else if (shuffledPool.length >= 16) roundType = 'roundOf16';
-  else if (shuffledPool.length === 8) roundType = 'quarter';
-  else if (shuffledPool.length === 4) roundType = 'semi';
+  if (adjustedPool.length >= 64) roundType = 'roundOf64';
+  else if (adjustedPool.length >= 32) roundType = 'roundOf32';
+  else if (adjustedPool.length >= 16) roundType = 'roundOf16';
+  else if (adjustedPool.length === 8) roundType = 'quarter';
+  else if (adjustedPool.length === 4) roundType = 'semi';
 
-  for (let i = 0; i < shuffledPool.length; i += 2) {
-    const item1 = shuffledPool[i];
-    const item2 = shuffledPool[i + 1];
+  for (let i = 0; i < adjustedPool.length; i += 2) {
+    const item1 = adjustedPool[i];
+    const item2 = adjustedPool[i + 1];
     const matchIndex = i / 2 + 1;
 
     newMatches.push({

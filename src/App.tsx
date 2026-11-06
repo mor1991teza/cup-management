@@ -380,11 +380,12 @@ export default function App() {
     return `قانون صعود: مجموعاً ${totalAdvancing} بازیکن بر اساس سهمیه تعیین‌شده هر گروه (${groupSummary}) به مرحله حذفی صعود می‌کنند.`;
   }, [state.groups]);
 
-  const handleAddPlayer = ({ name, team }: { name: string; team?: string }) => {
+  const handleAddPlayer = ({ name, team, uniqueId }: { name: string; team?: string; uniqueId?: string }) => {
     const newPlayer: Player = {
       id: `p-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       name,
       team,
+      uniqueId,
     };
     trackEvent('player_added', { name, team });
     setState((prev) => ({
@@ -604,7 +605,8 @@ export default function App() {
       currentRound,
       state.hasThirdPlaceMatch,
       isDouble,
-      forceBo3
+      forceBo3,
+      playersMap
     );
 
     if (!result) return;
@@ -1456,13 +1458,18 @@ export default function App() {
   };
 
   const handleAdvanceToKnockout = () => {
-    const hasAnyOverflow = state.groups.some((g) => (g.advanceCount ?? 2) > g.playerIds.length);
+    const isThreeGroupsBestThirds = state.groups.length === 3 && state.advancementRule === 'bestThirds';
+
+    const hasAnyOverflow = !isThreeGroupsBestThirds && state.groups.some((g) => (g.advanceCount ?? 2) > g.playerIds.length);
     if (hasAnyOverflow) {
       alert('تعداد صعودی نمیتواند بیشتر از تعداد بازیکنان گروه باشد.');
       return;
     }
 
-    const totalAdvancing = state.groups.reduce((acc, g) => acc + (g.advanceCount ?? 2), 0);
+    const totalAdvancing = isThreeGroupsBestThirds
+      ? 8
+      : state.groups.reduce((acc, g) => acc + (g.advanceCount ?? 2), 0);
+
     if (!isValidKnockoutCount(totalAdvancing)) {
       alert(getKnockoutCountErrorMessage(totalAdvancing));
       return;
