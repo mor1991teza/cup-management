@@ -558,6 +558,7 @@ export const BracketView: React.FC<BracketViewProps> = ({
                       onResetScore={onResetScore}
                       isKnockout={true}
                       gameType={state.gameType || 'pes'}
+                      billiardsFormat={state.billiardsFormat}
                     />
                   ))}
                 </div>
@@ -618,6 +619,7 @@ export const BracketView: React.FC<BracketViewProps> = ({
                           onResetScore={onResetScore}
                           isKnockout={true}
                           gameType={state.gameType || 'pes'}
+                          billiardsFormat={state.billiardsFormat}
                         />
                       ))}
                     </div>

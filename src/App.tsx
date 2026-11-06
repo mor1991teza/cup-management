@@ -1926,6 +1926,7 @@ export default function App() {
                         onResetScore={handleResetScore}
                         isKnockout={match.stage === 'knockout'}
                         gameType={state.gameType || 'pes'}
+                        billiardsFormat={state.billiardsFormat}
                       />
                     ))}
                   </div>

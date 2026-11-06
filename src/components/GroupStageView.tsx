@@ -504,6 +504,7 @@ export const GroupStageView: React.FC<GroupStageViewProps> = ({
                         onResetScore={onResetScore}
                         isKnockout={false}
                         gameType={state.gameType || 'pes'}
+                        billiardsFormat={state.billiardsFormat}
                       />
                     ))}
                   </div>

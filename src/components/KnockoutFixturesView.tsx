@@ -406,6 +406,7 @@ export const KnockoutFixturesView: React.FC<KnockoutFixturesViewProps> = ({
               onResetScore={onResetScore}
               isKnockout={true}
               gameType={state.gameType || 'pes'}
+              billiardsFormat={state.billiardsFormat}
             />
           ))}
         </div>
