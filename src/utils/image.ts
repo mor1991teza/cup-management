@@ -91,3 +91,41 @@ export const AVATAR_PRESETS: Array<{ id: string; name: string; avatarUrl: string
     color: '#8b5cf6',
   },
 ];
+
+// آیکون‌ها و تصاویر پیش‌فرض اختصاصی بیلیارد (پاکت بیلیارد، ایت‌بال، ناین‌بال و کیوبال)
+export const BILLIARDS_AVATAR_PRESETS: Array<{ id: string; name: string; avatarUrl: string; color: string }> = [
+  {
+    id: 'preset-billiards-8ball',
+    name: 'توپ ۸ مشکی (8-Ball)',
+    avatarUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23061f14"/><circle cx="100" cy="100" r="85" fill="%230f172a"/><circle cx="92" cy="92" r="78" fill="%23020617"/><circle cx="100" cy="100" r="38" fill="%23ffffff"/><text x="100" y="117" font-family="sans-serif" font-weight="900" font-size="48" fill="%23000000" text-anchor="middle">8</text><text x="100" y="172" font-family="sans-serif" font-weight="bold" font-size="13" fill="%2334d399" text-anchor="middle">8-BALL</text></svg>',
+    color: '#10b981',
+  },
+  {
+    id: 'preset-billiards-9ball',
+    name: 'توپ ۹ ناین‌بال (9-Ball)',
+    avatarUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23061f14"/><circle cx="100" cy="100" r="85" fill="%23f8fafc"/><rect x="15" y="52" width="170" height="96" fill="%23eab308"/><circle cx="100" cy="100" r="36" fill="%23ffffff"/><text x="100" y="116" font-family="sans-serif" font-weight="900" font-size="46" fill="%23000000" text-anchor="middle">9</text><line x1="82" y1="123" x2="118" y2="123" stroke="%23000000" stroke-width="4"/><text x="100" y="175" font-family="sans-serif" font-weight="bold" font-size="13" fill="%23fde047" text-anchor="middle">9-BALL</text></svg>',
+    color: '#eab308',
+  },
+  {
+    id: 'preset-billiards-cueball',
+    name: 'کیوبال مسابقاتی (Cue Ball)',
+    avatarUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23061f14"/><circle cx="100" cy="100" r="85" fill="%23f8fafc"/><circle cx="100" cy="45" r="7" fill="%23ef4444"/><circle cx="100" cy="155" r="7" fill="%23ef4444"/><circle cx="45" cy="100" r="7" fill="%23ef4444"/><circle cx="155" cy="100" r="7" fill="%23ef4444"/><circle cx="65" cy="65" r="6" fill="%23ef4444"/><circle cx="135" cy="135" r="6" fill="%23ef4444"/><text x="100" y="106" font-family="sans-serif" font-weight="900" font-size="16" fill="%23475569" text-anchor="middle">CUE</text><text x="100" y="126" font-family="sans-serif" font-weight="bold" font-size="11" fill="%2394a3b8" text-anchor="middle">PRO CUP</text></svg>',
+    color: '#f8fafc',
+  },
+  {
+    id: 'preset-billiards-1ball',
+    name: 'توپ ۱ زرد (Solid 1)',
+    avatarUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23061f14"/><circle cx="100" cy="100" r="85" fill="%23eab308"/><circle cx="100" cy="100" r="38" fill="%23ffffff"/><text x="100" y="117" font-family="sans-serif" font-weight="900" font-size="48" fill="%23000000" text-anchor="middle">1</text><text x="100" y="172" font-family="sans-serif" font-weight="bold" font-size="13" fill="%23fde047" text-anchor="middle">SOLID</text></svg>',
+    color: '#ca8a04',
+  },
+  {
+    id: 'preset-billiards-master',
+    name: 'مستر بریک و پاکت',
+    avatarUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23042014"/><circle cx="100" cy="100" r="85" fill="%23064e3b" stroke="%2310b981" stroke-width="5"/><polygon points="100,52 142,126 58,126" fill="none" stroke="%23fbbf24" stroke-width="4"/><circle cx="100" cy="72" r="8" fill="%23ef4444"/><circle cx="92" cy="90" r="8" fill="%23eab308"/><circle cx="108" cy="90" r="8" fill="%233b82f6"/><circle cx="84" cy="108" r="8" fill="%238b5cf6"/><circle cx="100" cy="108" r="8" fill="%23000000"/><circle cx="116" cy="108" r="8" fill="%23f97316"/><text x="100" y="162" font-family="sans-serif" font-weight="900" font-size="14" fill="%23a7f3d0" text-anchor="middle">MASTER</text></svg>',
+    color: '#059669',
+  },
+];
+
+export const getAvatarPresets = (gameType?: string) => {
+  return gameType === 'billiards' ? BILLIARDS_AVATAR_PRESETS : AVATAR_PRESETS;
+};

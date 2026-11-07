@@ -18,6 +18,7 @@ import {
   Maximize2,
   Calendar,
   Clock,
+  CircleDot,
 } from 'lucide-react';
 import { sound } from '../utils/audio';
 
@@ -59,6 +60,8 @@ export const BracketView: React.FC<BracketViewProps> = ({
     state.tournamentFormat === 'knockout_double' ||
     state.tournamentFormat === 'knockout_black';
   const isDoubleElim = state.tournamentFormat === 'knockout_double';
+  const isBilliards = state.gameType === 'billiards';
+  const cleanPlayerName = (name: string) => (isBilliards ? name.replace(/\s*\([^)]*\)/g, '').trim() : name);
 
   const [doubleElimTab, setDoubleElimTab] = useState<'winners' | 'grand_final'>(() => {
     if (state.tournamentFormat !== 'knockout_double') return 'winners';
@@ -160,42 +163,66 @@ export const BracketView: React.FC<BracketViewProps> = ({
     <div className="space-y-6">
       {/* Champion Pedestal Banner (If final is played or tournament finished) */}
       {championPlayer ? (
-        <div className="card-stadium p-6 rounded-2xl border-2 border-amber-500/50 bg-gradient-to-b from-amber-950/40 via-slate-900/90 to-slate-950 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className={`card-stadium p-6 rounded-2xl border-2 ${
+          isBilliards
+            ? 'border-emerald-500/60 bg-gradient-to-b from-emerald-950/40 via-[#062417]/90 to-[#020e08]'
+            : 'border-amber-500/50 bg-gradient-to-b from-amber-950/40 via-slate-900/90 to-slate-950'
+        } shadow-2xl relative overflow-hidden`}>
+          <div className={`absolute top-0 right-0 w-64 h-64 ${
+            isBilliards ? 'bg-emerald-500/15' : 'bg-amber-500/10'
+          } rounded-full blur-3xl pointer-events-none`} />
           <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-4 text-center md:text-right">
               {/* Champion Avatar or Crown */}
-              <div className="relative w-16 h-16 rounded-2xl p-0.5 bg-gradient-to-tr from-amber-500 to-yellow-300 shadow-lg shadow-amber-500/30 shrink-0">
+              <div className={`relative w-16 h-16 rounded-2xl p-0.5 ${
+                isBilliards
+                  ? 'bg-gradient-to-tr from-emerald-500 to-teal-300 shadow-lg shadow-emerald-500/30'
+                  : 'bg-gradient-to-tr from-amber-500 to-yellow-300 shadow-lg shadow-amber-500/30'
+              } shrink-0`}>
                 {championPlayer.avatarUrl ? (
                   <img
                     src={championPlayer.avatarUrl}
-                    alt={championPlayer.name}
+                    alt={cleanPlayerName(championPlayer.name)}
                     className="w-full h-full object-cover rounded-[14px]"
                   />
                 ) : (
-                  <div className="w-full h-full bg-[#090d16] rounded-[14px] flex items-center justify-center">
-                    <Crown className="w-9 h-9 text-amber-400 animate-bounce" />
+                  <div className={`w-full h-full ${isBilliards ? 'bg-[#03180e]' : 'bg-[#090d16]'} rounded-[14px] flex items-center justify-center`}>
+                    {isBilliards ? (
+                      <CircleDot className="w-9 h-9 text-emerald-400 animate-pulse" />
+                    ) : (
+                      <Crown className="w-9 h-9 text-amber-400 animate-bounce" />
+                    )}
                   </div>
                 )}
-                <div className="absolute -top-2 -right-2 bg-amber-500 text-slate-950 p-1 rounded-full shadow">
+                <div className={`absolute -top-2 -right-2 ${isBilliards ? 'bg-emerald-500' : 'bg-amber-500'} text-slate-950 p-1 rounded-full shadow`}>
                   <Crown className="w-3.5 h-3.5" />
                 </div>
               </div>
 
               <div>
-                <span className="text-xs uppercase tracking-widest text-amber-400 font-bold">
-                  {state.tournamentFormat === 'knockout_single'
-                    ? 'قهرمان مسابقات حذفی تک PES 2021'
-                    : state.tournamentFormat === 'knockout_double'
-                    ? 'قهرمان مسابقات حذفی دوگانه PES 2021 (Bo3)'
-                    : state.tournamentFormat === 'knockout_black'
-                    ? 'قهرمان مسابقات حالت بلک PES 2021'
-                    : 'قهرمان کاپ گروهی PES 2021'}
+                <span className={`text-xs uppercase tracking-widest ${isBilliards ? 'text-emerald-400' : 'text-amber-400'} font-bold`}>
+                  {isBilliards ? (
+                    state.tournamentFormat === 'knockout_single'
+                      ? 'قهرمان مسابقات حذفی بیلیارد'
+                      : state.tournamentFormat === 'knockout_double'
+                      ? 'قهرمان مسابقات حذفی دوگانه بیلیارد'
+                      : state.tournamentFormat === 'knockout_black'
+                      ? 'قهرمان مسابقات بیلیارد (Black Mode)'
+                      : 'قهرمان کاپ گروهی بیلیارد'
+                  ) : (
+                    state.tournamentFormat === 'knockout_single'
+                      ? 'قهرمان مسابقات حذفی تک PES 2021'
+                      : state.tournamentFormat === 'knockout_double'
+                      ? 'قهرمان مسابقات حذفی دوگانه PES 2021 (Bo3)'
+                      : state.tournamentFormat === 'knockout_black'
+                      ? 'قهرمان مسابقات حالت بلک PES 2021'
+                      : 'قهرمان کاپ گروهی PES 2021'
+                  )}
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-0.5">
-                  {championPlayer.name}
+                  {cleanPlayerName(championPlayer.name)}
                 </h2>
-                {championPlayer.team && (
+                {!isBilliards && championPlayer.team && (
                   <p className="text-sm text-slate-300 mt-0.5">
                     با تیم قدرتمند {championPlayer.team}
                   </p>
@@ -206,33 +233,37 @@ export const BracketView: React.FC<BracketViewProps> = ({
             {/* Podium Details & Open Celebration Modal */}
             <div className="flex items-center gap-4 flex-wrap justify-center text-xs">
               {runnerUpPlayer && (
-                <div className="px-4 py-2 bg-slate-900/80 border border-slate-700 rounded-xl text-center flex items-center gap-2.5">
+                <div className={`px-4 py-2 ${
+                  isBilliards ? 'bg-[#062417]/90 border-emerald-700/60' : 'bg-slate-900/80 border-slate-700'
+                } border rounded-xl text-center flex items-center gap-2.5`}>
                   {runnerUpPlayer.avatarUrl && (
                     <img
                       src={runnerUpPlayer.avatarUrl}
-                      alt={runnerUpPlayer.name}
+                      alt={cleanPlayerName(runnerUpPlayer.name)}
                       className="w-7 h-7 rounded-lg object-cover"
                     />
                   )}
                   <div>
-                    <span className="text-[10px] text-slate-400 block font-semibold">نایب قهرمان</span>
-                    <span className="text-slate-200 font-bold">{runnerUpPlayer.name}</span>
+                    <span className={`text-[10px] ${isBilliards ? 'text-emerald-300/80' : 'text-slate-400'} block font-semibold`}>نایب قهرمان</span>
+                    <span className="text-slate-200 font-bold">{cleanPlayerName(runnerUpPlayer.name)}</span>
                   </div>
                 </div>
               )}
 
               {thirdPlayer && (
-                <div className="px-4 py-2 bg-slate-900/80 border border-slate-700 rounded-xl text-center flex items-center gap-2.5">
+                <div className={`px-4 py-2 ${
+                  isBilliards ? 'bg-[#062417]/90 border-emerald-700/60' : 'bg-slate-900/80 border-slate-700'
+                } border rounded-xl text-center flex items-center gap-2.5`}>
                   {thirdPlayer.avatarUrl && (
                     <img
                       src={thirdPlayer.avatarUrl}
-                      alt={thirdPlayer.name}
+                      alt={cleanPlayerName(thirdPlayer.name)}
                       className="w-7 h-7 rounded-lg object-cover"
                     />
                   )}
                   <div>
                     <span className="text-[10px] text-amber-500/80 block font-semibold">مقام سوم</span>
-                    <span className="text-slate-200 font-bold">{thirdPlayer.name}</span>
+                    <span className="text-slate-200 font-bold">{cleanPlayerName(thirdPlayer.name)}</span>
                   </div>
                 </div>
               )}

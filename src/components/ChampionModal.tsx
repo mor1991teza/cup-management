@@ -15,11 +15,12 @@ import {
   Share2,
   Eye,
   Loader2,
+  CircleDot,
 } from 'lucide-react';
 import { Match, Player, GameType } from '../types/tournament';
 import { triggerConfetti } from '../utils/confetti';
 import { sound } from '../utils/audio';
-import { compressAndResizeImage, AVATAR_PRESETS, resolveAvatarUrl } from '../utils/image';
+import { compressAndResizeImage, AVATAR_PRESETS, BILLIARDS_AVATAR_PRESETS, resolveAvatarUrl } from '../utils/image';
 import { StoryCard } from './StoryCard';
 import { exportElementAsStory } from '../utils/storyExport';
 
@@ -146,6 +147,10 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
     }
   };
 
+  const isBilliards = gameType === 'billiards';
+  const cleanChampionName = champion.name.replace(/\s*\([^)]*\)/g, '').trim();
+  const cleanRunnerUpName = runnerUp ? runnerUp.name.replace(/\s*\([^)]*\)/g, '').trim() : '';
+
   const handleDownloadStory = async () => {
     if (!storyCardRef.current || !champion) return;
     setIsExportingStory(true);
@@ -153,8 +158,10 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
     sound.playClick();
 
     try {
-      const sanitizedName = champion.name.trim().replace(/\s+/g, '-');
-      const fileName = `pes2021-champion-${sanitizedName}-story.png`;
+      const sanitizedName = cleanChampionName.replace(/\s+/g, '-');
+      const fileName = isBilliards
+        ? `billiards-champion-${sanitizedName}-story.png`
+        : `pes2021-champion-${sanitizedName}-story.png`;
       const res = await exportElementAsStory(storyCardRef.current, fileName);
       if (res.success) {
         sound.playFanfare();
@@ -177,10 +184,18 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/90 backdrop-blur-md overflow-y-auto overflow-x-hidden animate-fade-in">
-      <div className="card-stadium w-full max-w-2xl rounded-3xl border-2 border-amber-500/80 p-6 sm:p-8 shadow-2xl relative text-center overflow-hidden bg-gradient-to-b from-[#181308] via-[#0d131f] to-[#080c14] my-auto">
+      <div className={`card-stadium w-full max-w-2xl rounded-3xl border-2 ${
+        isBilliards
+          ? 'border-emerald-500/80 bg-gradient-to-b from-[#062417] via-[#041a10] to-[#020e08] text-emerald-100'
+          : 'border-amber-500/80 bg-gradient-to-b from-[#181308] via-[#0d131f] to-[#080c14] text-slate-100'
+      } p-6 sm:p-8 shadow-2xl relative text-center overflow-hidden my-auto`}>
         {/* Glow & Stadium Floodlights */}
-        <div className="absolute -top-32 -left-32 w-80 h-80 bg-amber-500/25 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -right-32 w-80 h-80 bg-cyan-500/25 rounded-full blur-3xl pointer-events-none" />
+        <div className={`absolute -top-32 -left-32 w-80 h-80 ${
+          isBilliards ? 'bg-emerald-500/25' : 'bg-amber-500/25'
+        } rounded-full blur-3xl pointer-events-none`} />
+        <div className={`absolute -bottom-32 -right-32 w-80 h-80 ${
+          isBilliards ? 'bg-teal-500/25' : 'bg-cyan-500/25'
+        } rounded-full blur-3xl pointer-events-none`} />
 
         {/* Close Button */}
         <button
@@ -197,7 +212,11 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
         {/* Top Header Kicker */}
         <div className="flex items-center justify-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
           <Star className="w-4 h-4 fill-current text-amber-400" />
-          <span>مراسم اختتامیه و اهدای مدال‌های کاپ PES 2021</span>
+          <span>
+            {isBilliards
+              ? 'مراسم اختتامیه و اهدای مدال‌های کاپ بیلیارد'
+              : 'مراسم اختتامیه و اهدای مدال‌های کاپ PES 2021'}
+          </span>
           <Star className="w-4 h-4 fill-current text-amber-400" />
         </div>
 
@@ -207,10 +226,12 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
 
         {/* Final Match Score Badge (if available) */}
         {finalMatch && finalMatch.homeScore !== null && finalMatch.awayScore !== null && (
-          <div className="inline-flex items-center gap-3 px-4 py-1.5 mb-6 rounded-full bg-slate-900/90 border border-slate-700/80 text-xs text-slate-300 shadow-md">
-            <span className="text-slate-400">نتیجه دیدار فینال:</span>
+          <div className={`inline-flex items-center gap-3 px-4 py-1.5 mb-6 rounded-full ${
+            isBilliards ? 'bg-[#062417]/90 border-emerald-500/50 text-emerald-200' : 'bg-slate-900/90 border-slate-700/80 text-slate-300'
+          } border text-xs shadow-md`}>
+            <span className={isBilliards ? 'text-emerald-300' : 'text-slate-400'}>نتیجه دیدار فینال:</span>
             <span className="font-mono font-bold text-rose-300 text-sm">
-              {finalMatch.homeScore} - {finalMatch.awayScore}
+              {finalMatch.homeScore} - {finalMatch.awayScore} {isBilliards ? 'فریم' : ''}
             </span>
             {gameType !== 'billiards' && finalMatch.hasPenalties && finalMatch.homePenaltyScore !== null && (
               <span className="text-amber-400 font-mono text-[11px]">
@@ -223,7 +244,11 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
         {/* Modern 3D Dual Podium: 1st & 2nd Place Showcases */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6 my-2 items-end">
           {/* Rank 1: Gold Champion (نفر اول - طلایی) */}
-          <div className="card-stadium rounded-2xl p-5 border-2 border-amber-500/70 bg-gradient-to-b from-amber-950/40 via-slate-900/90 to-slate-950 shadow-xl relative order-1 sm:order-2 flex flex-col items-center">
+          <div className={`card-stadium rounded-2xl p-5 border-2 ${
+            isBilliards
+              ? 'border-emerald-500/70 bg-gradient-to-b from-emerald-950/40 via-[#062417]/90 to-[#020e08]'
+              : 'border-amber-500/70 bg-gradient-to-b from-amber-950/40 via-slate-900/90 to-slate-950'
+          } shadow-xl relative order-1 sm:order-2 flex flex-col items-center`}>
             {/* Top Crown */}
             <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center -mt-9 mb-2 shadow-lg shadow-amber-500/30">
               <Crown className="w-6 h-6 text-amber-400 animate-bounce" />
@@ -236,12 +261,16 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
                   {champion.avatarUrl ? (
                     <img
                       src={resolveAvatarUrl(champion.avatarUrl, assetsBase)}
-                      alt={champion.name}
+                      alt={cleanChampionName}
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-400">
-                      <User className="w-12 h-12 text-amber-400/80 mb-1" />
+                      {isBilliards ? (
+                        <CircleDot className="w-12 h-12 text-emerald-400/80 mb-1" />
+                      ) : (
+                        <User className="w-12 h-12 text-amber-400/80 mb-1" />
+                      )}
                       <span className="text-[10px] text-amber-300 font-bold">بدون تصویر</span>
                     </div>
                   )}
@@ -268,9 +297,9 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
 
             {/* Champion Info */}
             <h3 className="text-xl sm:text-2xl font-black text-amber-300 mt-2 truncate max-w-full">
-              {champion.name}
+              {cleanChampionName}
             </h3>
-            {champion.team && (
+            {!isBilliards && champion.team && (
               <p className="text-xs text-slate-300 font-semibold mt-0.5">
                 تیم: {champion.team}
               </p>
@@ -307,7 +336,11 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
           </div>
 
           {/* Rank 2: Silver Runner-Up (نفر دوم - نقره‌ای) */}
-          <div className="card-stadium rounded-2xl p-5 border border-slate-700 bg-gradient-to-b from-slate-800/40 via-slate-900/90 to-slate-950 shadow-lg relative order-2 sm:order-1 flex flex-col items-center">
+          <div className={`card-stadium rounded-2xl p-5 border ${
+            isBilliards
+              ? 'border-emerald-600/50 bg-gradient-to-b from-[#062417]/60 via-[#041a10]/90 to-[#020e08]'
+              : 'border-slate-700 bg-gradient-to-b from-slate-800/40 via-slate-900/90 to-slate-950'
+          } shadow-lg relative order-2 sm:order-1 flex flex-col items-center`}>
             {/* Top Medal */}
             <div className="w-8 h-8 rounded-full bg-slate-700/60 border border-slate-500/50 flex items-center justify-center -mt-7 mb-2 shadow-md">
               <Award className="w-5 h-5 text-slate-300" />
@@ -320,12 +353,16 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
                   {runnerUp?.avatarUrl ? (
                     <img
                       src={resolveAvatarUrl(runnerUp.avatarUrl, assetsBase)}
-                      alt={runnerUp.name}
+                      alt={cleanRunnerUpName}
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-400">
-                      <User className="w-10 h-10 text-slate-400 mb-1" />
+                      {isBilliards ? (
+                        <CircleDot className="w-10 h-10 text-emerald-400 mb-1" />
+                      ) : (
+                        <User className="w-10 h-10 text-slate-400 mb-1" />
+                      )}
                       <span className="text-[10px] text-slate-400 font-bold">بدون تصویر</span>
                     </div>
                   )}
@@ -354,9 +391,9 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
 
             {/* Runner-Up Info */}
             <h3 className="text-lg sm:text-xl font-bold text-slate-100 mt-2 truncate max-w-full">
-              {runnerUp ? runnerUp.name : 'در انتظار تعیین'}
+              {cleanRunnerUpName || 'در انتظار تعیین'}
             </h3>
-            {runnerUp?.team && (
+            {!isBilliards && runnerUp?.team && (
               <p className="text-xs text-slate-400 font-medium mt-0.5">
                 تیم: {runnerUp.team}
               </p>
@@ -397,40 +434,56 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
 
         {/* Preset Selector Dropdown / Drawer */}
         {activePhotoUploadFor && (
-          <div className="card-stadium p-4 rounded-2xl border border-app-primary/40 bg-app-surface my-4 text-right animate-fade-in">
-            <div className="flex items-center justify-between border-b border-app-border pb-2 mb-3">
-              <span className="text-xs font-bold text-app-primary flex items-center gap-1.5">
-                <ImageIcon className="w-4 h-4 text-app-primary" />
+          <div className={`card-stadium p-4 rounded-2xl border ${
+            isBilliards
+              ? 'border-emerald-500/50 bg-[#062417]/95'
+              : 'border-app-primary/40 bg-app-surface'
+          } my-4 text-right animate-fade-in`}>
+            <div className={`flex items-center justify-between border-b ${
+              isBilliards ? 'border-emerald-800/60' : 'border-app-border'
+            } pb-2 mb-3`}>
+              <span className={`text-xs font-bold ${
+                isBilliards ? 'text-emerald-400' : 'text-app-primary'
+              } flex items-center gap-1.5`}>
+                <ImageIcon className={`w-4 h-4 ${isBilliards ? 'text-emerald-400' : 'text-app-primary'}`} />
                 <span>
                   انتخاب آیکون و تصویر پیش‌فرض برای{' '}
-                  {activePhotoUploadFor === 'champion' ? champion.name : runnerUp?.name}:
+                  {activePhotoUploadFor === 'champion' ? cleanChampionName : cleanRunnerUpName}:
                 </span>
               </span>
               <button
                 type="button"
                 onClick={() => setActivePhotoUploadFor(null)}
-                className="text-app-text-muted hover:text-app-text text-xs cursor-pointer"
+                className={`${isBilliards ? 'text-emerald-300 hover:text-white' : 'text-app-text-muted hover:text-app-text'} text-xs cursor-pointer`}
               >
                 بستن
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              {AVATAR_PRESETS.map((preset) => (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+              {(isBilliards ? BILLIARDS_AVATAR_PRESETS : AVATAR_PRESETS).map((preset) => (
                 <button
                   key={preset.id}
                   type="button"
                   onClick={() => handleSelectPreset(activePhotoUploadFor, preset.avatarUrl)}
-                  className="flex items-center gap-2 p-2 bg-app-bg hover:bg-app-surface border border-app-border hover:border-app-primary rounded-xl transition-all text-right group cursor-pointer"
+                  className={`flex items-center gap-2 p-2 ${
+                    isBilliards
+                      ? 'bg-[#041a10] hover:bg-[#072f1e] border-emerald-800/80 hover:border-emerald-500'
+                      : 'bg-app-bg hover:bg-app-surface border-app-border hover:border-app-primary'
+                  } border rounded-xl transition-all text-right group cursor-pointer`}
                 >
-                  <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-app-border">
+                  <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-slate-700">
                     <img
                       src={resolveAvatarUrl(preset.avatarUrl, assetsBase)}
                       alt={preset.name}
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  <span className="text-[11px] font-semibold text-app-text-muted group-hover:text-app-primary truncate">
+                  <span className={`text-[11px] font-semibold ${
+                    isBilliards
+                      ? 'text-emerald-200 group-hover:text-emerald-300'
+                      : 'text-app-text-muted group-hover:text-app-primary'
+                  } truncate`}>
                     {preset.name}
                   </span>
                 </button>
@@ -446,7 +499,11 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
         )}
 
         {/* Story Generation & Share Section */}
-        <div className="card-stadium mt-5 p-4 sm:p-5 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-950/30 via-slate-900 to-rose-950/30 text-right shadow-lg">
+        <div className={`card-stadium mt-5 p-4 sm:p-5 rounded-2xl border ${
+          isBilliards
+            ? 'border-emerald-500/40 bg-gradient-to-r from-emerald-950/40 via-[#041a10] to-[#020e08]'
+            : 'border-amber-500/40 bg-gradient-to-r from-amber-950/30 via-slate-900 to-rose-950/30'
+        } text-right shadow-lg`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
@@ -511,6 +568,7 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
                     finalMatch={finalMatch}
                     assetsBase={assetsBase}
                     hostLogo={hostLogo}
+                    gameType={gameType}
                   />
                 </div>
               </div>
@@ -582,6 +640,7 @@ export const ChampionModal: React.FC<ChampionModalProps> = ({
           finalMatch={finalMatch}
           assetsBase={assetsBase}
           hostLogo={hostLogo}
+          gameType={gameType}
         />
       </div>
     </div>

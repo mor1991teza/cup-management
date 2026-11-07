@@ -2132,7 +2132,7 @@ export default function App() {
           <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 text-[11px] text-app-text-muted">
             <div className="flex items-center gap-2">
               <Trophy className="w-4 h-4 text-app-primary" />
-              <span>سامانه هوشمند مدیریت کاپ PES 2021</span>
+              <span>سامانه هوشمند مدیریت کاپ</span>
             </div>
             <span className="hidden md:inline text-app-border" aria-hidden="true">·</span>
             <span>ذخیره‌سازی خودکار در مرورگر</span>
