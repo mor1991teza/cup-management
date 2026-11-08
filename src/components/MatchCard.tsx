@@ -300,14 +300,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
     return (
       <div
-        className={`card-stadium rounded-2xl p-4 border transition-all text-app-text ${
+        className={`card-stadium rounded-2xl p-5 border transition-all text-app-text ${
           match.isFinished
-            ? 'border-emerald-800/60 bg-app-surface shadow-md'
-            : 'border-app-border bg-app-surface shadow-lg'
+            ? 'border-emerald-500/30 bg-slate-900/60 shadow-lg'
+            : 'border-white/10 bg-slate-900/50 shadow-xl'
         }`}
       >
         {/* Header: Stage info + Bo3 badge */}
-        <div className="flex items-center justify-between text-xs text-app-text-muted pb-2.5 mb-3 border-b border-app-border">
+        <div className="flex items-center justify-between text-xs text-app-text-muted pb-3 mb-3.5 border-b border-white/10">
           <div className="flex items-center gap-2">
             <span className="font-bold text-app-text">
               {match.roundLabel || match.knockoutRoundLabel || 'مرحله حذفی'}
@@ -604,14 +604,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   return (
     <div
-      className={`card-stadium rounded-xl p-3.5 border transition-all text-app-text ${
+      className={`card-stadium rounded-2xl p-5 border transition-all text-app-text ${
         match.isFinished
-          ? 'border-app-border bg-app-surface/60'
-          : 'border-app-border bg-app-surface shadow-sm'
+          ? 'border-white/10 bg-slate-900/40'
+          : 'border-white/10 bg-slate-900/60 shadow-lg'
       }`}
     >
       {/* Top Meta: Round / Seed / Status */}
-      <div className="flex items-center justify-between text-[11px] text-app-text-muted mb-2.5 pb-2 border-b border-app-border">
+      <div className="flex items-center justify-between text-[11px] text-app-text-muted mb-3 pb-2.5 border-b border-white/10">
         <span className="font-medium text-app-text">
           {match.roundLabel || match.knockoutRoundLabel || 'مسابقه'}
         </span>
@@ -1065,31 +1065,31 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
         {/* Action Buttons: Save & Reset to Unplayed (PES mode only) */}
         {!isBilliards && isEditing && isBothAssigned && (
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
+          <div className="flex items-center justify-between gap-2 pt-3 border-t border-white/10">
             {/* Reset / Clear match score if it was registered */}
             {match.isFinished ? (
               <button
                 type="button"
                 onClick={handleResetMatch}
-                className="flex items-center gap-1 text-[11px] text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 px-2 py-1 rounded border border-rose-900/60 transition-colors cursor-pointer"
+                className="btn-secondary-glass flex items-center gap-1.5 text-[11px] text-rose-400 hover:text-rose-300 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
                 title="پاک کردن نتیجه و بازگردانی به بازی انجام‌نشده"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>لغو و پاک کردن نتیجه</span>
               </button>
             ) : (
-              <div className="text-[10px] text-slate-500">
+              <div className="text-[11px] text-slate-400">
                 پس از تنظیم نتیجه، دکمه «ثبت و بروزرسانی جدول» را بزنید
               </div>
             )}
 
             {/* Save & Update Table Action */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               {match.isFinished && (
                 <button
                   type="button"
                   onClick={() => setIsEditing(false)}
-                  className="px-2.5 py-1 text-[11px] text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                  className="btn-secondary-glass px-3 py-1.5 text-[11px] rounded-xl cursor-pointer"
                 >
                   بستن
                 </button>
@@ -1105,7 +1105,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     !penaltyWinner &&
                     (homePenInput === '' || awayPenInput === '' || homePenInput === awayPenInput))
                 }
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition-all ${
                   homeScoreNum !== null &&
                   awayScoreNum !== null &&
                   !(
@@ -1114,8 +1114,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                     !penaltyWinner &&
                     (homePenInput === '' || awayPenInput === '' || homePenInput === awayPenInput)
                   )
-                    ? 'bg-app-primary hover:bg-app-primary-hover text-white cursor-pointer shadow-md'
-                    : 'bg-app-surface text-app-text-muted/50 cursor-not-allowed border border-app-border'
+                    ? 'btn-primary-glass cursor-pointer'
+                    : 'bg-white/5 text-slate-500 cursor-not-allowed border border-white/10'
                 }`}
               >
                 <Check className="w-3.5 h-3.5" />

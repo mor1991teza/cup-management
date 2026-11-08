@@ -74,18 +74,18 @@ export const DashboardStatus: React.FC<DashboardStatusProps> = ({
   };
 
   return (
-    <div className="bg-app-surface/90 border-b border-app-border text-app-text">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3">
+    <div className="bg-slate-950/60 backdrop-blur-md border-b border-white/[0.08] text-white">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3.5">
         {/* Status Row */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
           {/* Unboxed Metadata with · separator */}
-          <div className="flex items-center flex-wrap gap-2 text-app-text-muted">
+          <div className="flex items-center flex-wrap gap-2 text-slate-400">
             <span className="font-semibold text-app-primary">
               {getStageBadgeText()}
             </span>
-            <span className="text-app-border" aria-hidden="true">·</span>
+            <span className="text-white/20" aria-hidden="true">·</span>
             <span>{state.players.length} شرکت‌کننده</span>
-            <span className="text-app-border" aria-hidden="true">·</span>
+            <span className="text-white/20" aria-hidden="true">·</span>
             {isDirectKnockout ? (
               <>
                 <span className="text-app-primary font-semibold">
@@ -95,23 +95,23 @@ export const DashboardStatus: React.FC<DashboardStatusProps> = ({
                     ? 'حالت بلک'
                     : 'فرمت حذفی دوگانه (Bo3)'}
                 </span>
-                <span className="text-app-border" aria-hidden="true">·</span>
+                <span className="text-white/20" aria-hidden="true">·</span>
               </>
             ) : (
               <>
                 <span>{state.groups.length} گروه رقابتی</span>
-                <span className="text-app-border" aria-hidden="true">·</span>
+                <span className="text-white/20" aria-hidden="true">·</span>
               </>
             )}
             <span>
               <span className="font-mono tabular-nums text-emerald-400 font-bold">{finishedMatches}</span> از{' '}
-              <span className="font-mono tabular-nums text-app-text">{totalMatches}</span> بازی انجام شده
+              <span className="font-mono tabular-nums text-white font-bold">{totalMatches}</span> بازی انجام شده
             </span>
-            <span className="text-app-border" aria-hidden="true">·</span>
+            <span className="text-white/20" aria-hidden="true">·</span>
             <span>
               {state.gameType === 'billiards' ? 'مجموع فریم‌های برده: ' : 'مجموع گلهای زده: '}
               <span className="font-mono tabular-nums text-app-primary font-bold">{totalGoals}</span>
-              <span className="text-app-text-muted/70 mr-1">
+              <span className="text-slate-400/80 mr-1 font-normal">
                 ({avgGoals} {state.gameType === 'billiards' ? 'فریم در هر بازی' : 'گل در هر بازی'})
               </span>
             </span>
@@ -122,9 +122,9 @@ export const DashboardStatus: React.FC<DashboardStatusProps> = ({
             {state.championId && onOpenCelebrationModal && (
               <button
                 onClick={onOpenCelebrationModal}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-950 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:brightness-110 rounded-md shadow-sm transition-all whitespace-nowrap cursor-pointer"
+                className="btn-primary-glass flex items-center justify-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-950 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:brightness-110 rounded-xl shadow-md transition-all whitespace-nowrap cursor-pointer"
               >
-                <Trophy className="w-3.5 h-3.5 text-amber-900" />
+                <Trophy className="w-3.5 h-3.5 text-slate-950" />
                 <span>سکوی قهرمانی و تصاویر</span>
               </button>
             )}
@@ -133,7 +133,7 @@ export const DashboardStatus: React.FC<DashboardStatusProps> = ({
             {state.status === 'group' && canAdvanceToKnockout && onAdvanceToKnockout && (
               <button
                 onClick={onAdvanceToKnockout}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-app-primary hover:bg-app-primary-hover rounded-md shadow-sm transition-all whitespace-nowrap cursor-pointer"
+                className="btn-primary-glass flex items-center justify-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white rounded-xl shadow-md transition-all whitespace-nowrap cursor-pointer"
               >
                 <Trophy className="w-3.5 h-3.5" />
                 <span>شروع مرحله حذفی (تکمیل گروهی)</span>

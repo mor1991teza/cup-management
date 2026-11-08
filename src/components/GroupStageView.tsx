@@ -8,6 +8,7 @@ import {
 } from '../types/tournament';
 import { GroupTable } from './GroupTable';
 import { BilliardsGroupTable } from './BilliardsGroupTable';
+import { LiveThirdPlaceStandings } from './LiveThirdPlaceStandings';
 import { MatchCard } from './MatchCard';
 import {
   Trophy,
@@ -68,7 +69,7 @@ export const GroupStageView: React.FC<GroupStageViewProps> = ({
   // -------------------------------------------------------------------------
   // 🔴 مجموع کل صعودی‌ها و بررسی توان ۲ بودن 🔴
   // -------------------------------------------------------------------------
-  const isThreeGroupsBestThirds = state.groups.length === 3 && state.advancementRule === 'bestThirds';
+  const isThreeGroupsBestThirds = state.groups.length === 3 && (state.advancementRule === 'bestThirds' || !state.advancementRule);
 
   const totalAdvancing = useMemo(() => {
     if (isThreeGroupsBestThirds) return 8;
@@ -228,7 +229,7 @@ export const GroupStageView: React.FC<GroupStageViewProps> = ({
                     : getKnockoutCountErrorMessage(totalAdvancing)
                   : undefined
               }
-              className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl transition-all shadow-md ${
+              className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl transition-all shadow-md active:scale-[0.98] ${
                 (state.gameType === 'billiards' ? canAdvanceToKnockout : (canAdvanceToKnockout && isAdvanceCountValid))
                   ? state.gameType === 'billiards'
                     ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 text-white cursor-pointer shadow-emerald-950/60 ring-1 ring-emerald-400/40'
@@ -393,6 +394,8 @@ export const GroupStageView: React.FC<GroupStageViewProps> = ({
                 standings={standingsMap[group.id] || []}
                 playersMap={playersMap}
                 advancingPlayerIds={advancingPlayerIds}
+                advancementRule={state.advancementRule || 'bestThirds'}
+                groupCount={state.groups.length}
               />
             ) : (
               <GroupTable
@@ -409,8 +412,17 @@ export const GroupStageView: React.FC<GroupStageViewProps> = ({
           ))}
         </div>
 
+        {/* جدول زنده مقایسه تیم‌های رتبه سوم در صورت وجود ۳ گروه */}
+        {isThreeGroupsBestThirds && (
+          <LiveThirdPlaceStandings
+            groups={state.groups}
+            standingsMap={standingsMap}
+            gameType={state.gameType || 'pes'}
+          />
+        )}
+
         {/* 🔴 نمایش متن قانون زیر جداول فقط برای PES 🔴 */}
-        {state.gameType !== 'billiards' && (
+        {state.gameType !== 'billiards' && !isThreeGroupsBestThirds && (
           <div className="mt-4 p-3 bg-app-surface/60 border border-app-border rounded-lg text-center text-xs text-app-text-muted font-medium">
             {ruleDescription}
           </div>

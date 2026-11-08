@@ -113,56 +113,56 @@ export const StatsView: React.FC<StatsViewProps> = ({ state, playersMap }) => {
     <div className="space-y-6">
       {/* Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card-stadium p-4 rounded-xl border border-app-border bg-app-surface">
-          <div className="text-[11px] text-app-text-muted">
+        <div className="card-stadium p-5 rounded-2xl border border-white/10">
+          <div className="text-[11px] text-slate-400">
             {isBilliards ? 'مجموع فریم‌های برده' : 'مجموع گلهای تورنمنت'}
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-app-primary mt-1">
+          <div className="text-2xl font-black font-mono tabular-nums text-app-primary mt-1.5">
             {totalGoals}
           </div>
-          <div className="text-[10px] text-app-text-muted mt-1">
+          <div className="text-[10px] text-slate-500 mt-1">
             در {state.matches.filter((m) => m.isFinished).length} مسابقه ثبت شده
           </div>
         </div>
 
-        <div className="card-stadium p-4 rounded-xl border border-app-border bg-app-surface">
-          <div className="text-[11px] text-app-text-muted">
+        <div className="card-stadium p-5 rounded-2xl border border-white/10">
+          <div className="text-[11px] text-slate-400">
             {isBilliards ? 'میانگین فریم هر مسابقه' : 'میانگین گل هر مسابقه'}
           </div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-emerald-400 mt-1">
+          <div className="text-2xl font-black font-mono tabular-nums text-emerald-400 mt-1.5">
             {state.matches.filter((m) => m.isFinished).length > 0
               ? (totalGoals / state.matches.filter((m) => m.isFinished).length).toFixed(2)
               : '0.00'}
           </div>
-          <div className="text-[10px] text-app-text-muted mt-1">
+          <div className="text-[10px] text-slate-500 mt-1">
             {isBilliards ? 'نرخ فریم در هر بازی' : 'نرخ گلزنی در بازی‌ها'}
           </div>
         </div>
 
-        <div className="card-stadium p-4 rounded-xl border border-app-border bg-app-surface">
-          <div className="text-[11px] text-app-text-muted">تعداد بردهای قاطع</div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-amber-400 mt-1">
+        <div className="card-stadium p-5 rounded-2xl border border-white/10">
+          <div className="text-[11px] text-slate-400">تعداد بردهای قاطع</div>
+          <div className="text-2xl font-black font-mono tabular-nums text-amber-400 mt-1.5">
             {totalWins}
           </div>
-          <div className="text-[10px] text-app-text-muted mt-1">
+          <div className="text-[10px] text-slate-500 mt-1">
             {totalDraws} بازی نیز با تساوی به پایان رسیده
           </div>
         </div>
 
-        <div className="card-stadium p-4 rounded-xl border border-app-border bg-app-surface">
-          <div className="text-[11px] text-app-text-muted">تعداد کل بازیکنان</div>
-          <div className="text-2xl font-bold font-mono tabular-nums text-app-text mt-1">
+        <div className="card-stadium p-5 rounded-2xl border border-white/10">
+          <div className="text-[11px] text-slate-400">تعداد کل بازیکنان</div>
+          <div className="text-2xl font-black font-mono tabular-nums text-white mt-1.5">
             {state.players.length}
           </div>
-          <div className="text-[10px] text-app-text-muted mt-1">در قالب {state.groups.length} گروه</div>
+          <div className="text-[10px] text-slate-500 mt-1">در قالب {state.groups.length} گروه</div>
         </div>
       </div>
 
       {/* Leaderboard Tables */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Scorers */}
-        <div className="card-stadium p-5 rounded-xl border border-app-border bg-app-surface">
-          <div className="flex items-center gap-2 border-b border-app-border pb-3 mb-3">
+        <div className="card-stadium p-6 rounded-2xl border border-white/10">
+          <div className="flex items-center gap-2 border-b border-white/10 pb-3 mb-4">
             <Flame className="w-4 h-4 text-app-primary" />
             <h3 className="text-sm font-bold text-app-text">
               {isBilliards

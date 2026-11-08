@@ -1462,7 +1462,7 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                       sound.playWhistle();
                       onStartTournament();
                     }}
-                    className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg ${
+                    className={`w-full py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 transition-all shadow-xl active:scale-[0.98] ${
                       canStart
                         ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:brightness-110 text-white cursor-pointer shadow-emerald-950/60 ring-1 ring-emerald-400/40'
                         : 'bg-black/40 text-slate-600 cursor-not-allowed border border-emerald-950'
@@ -1479,7 +1479,7 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                       sound.playWhistle();
                       onStartKnockoutTournament();
                     }}
-                    className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg ${
+                    className={`w-full py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 transition-all shadow-xl active:scale-[0.98] ${
                       players.length >= 2
                         ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:brightness-110 text-white cursor-pointer shadow-emerald-950/60 ring-1 ring-emerald-400/40'
                         : 'bg-black/40 text-slate-600 cursor-not-allowed border border-emerald-950'
@@ -1894,7 +1894,7 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                     sound.playWhistle();
                     onStartTournament();
                   }}
-                  className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg ${
+                  className={`w-full py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 transition-all shadow-xl active:scale-[0.98] ${
                     canStart
                       ? 'bg-app-primary hover:bg-app-primary-hover text-white cursor-pointer shadow-lg'
                       : 'bg-app-surface text-app-text-muted/50 cursor-not-allowed border border-app-border'
@@ -2112,7 +2112,7 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                     sound.playWhistle();
                     onStartKnockoutTournament();
                   }}
-                  className={`w-full py-3.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg ${
+                  className={`w-full py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 transition-all shadow-xl active:scale-[0.98] ${
                     players.length >= 2
                       ? 'bg-app-primary hover:bg-app-primary-hover text-white cursor-pointer shadow-lg'
                       : 'bg-app-surface text-app-text-muted/50 cursor-not-allowed border border-app-border'

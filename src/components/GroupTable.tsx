@@ -26,52 +26,52 @@ export const GroupTable: React.FC<GroupTableProps> = ({
   const isBilliards = gameType === 'billiards';
 
   return (
-    <div className="card-stadium rounded-xl border border-app-border overflow-hidden shadow-sm bg-app-surface">
+    <div className="card-stadium rounded-2xl border border-white/10 overflow-hidden shadow-xl">
       {/* Header */}
-      <div className="px-4 py-3 bg-app-surface border-b border-app-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-app-primary/20 border border-app-primary/40 flex items-center justify-center font-bold text-xs text-app-primary font-mono shadow-sm">
+      <div className="px-5 py-3.5 bg-slate-900/40 border-b border-white/10 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-app-primary/20 border border-app-primary/40 flex items-center justify-center font-bold text-xs text-app-primary font-mono shadow-sm">
             {group.code}
           </div>
-          <h3 className="font-bold text-sm text-app-text">{group.name}</h3>
+          <h3 className="font-bold text-sm text-white">{group.name}</h3>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-emerald-400 font-medium bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-800/50 flex items-center gap-1">
+          <span className="text-[11px] text-emerald-400 font-medium bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>{isBilliards ? 'جدول رده‌بندی بیلیارد' : 'جدول زنده'}</span>
           </span>
-          <span className="text-[11px] text-app-text-muted">
+          <span className="text-[11px] text-slate-400 font-mono">
             {standings.length} بازیکن
           </span>
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto scrollbar-none">
         <table className="w-full text-xs text-right whitespace-nowrap">
           <thead>
-            <tr className="bg-app-bg/60 text-app-text-muted border-b border-app-border font-medium">
-              <th className="py-2.5 px-3 text-center w-8">#</th>
-              <th className="py-2.5 px-3 text-right">بازیکن و تیم</th>
-              <th className="py-2.5 px-2 text-center font-mono" title="بازی (Played)">بازی</th>
-              <th className="py-2.5 px-2 text-center font-mono text-emerald-400/90" title="برد (Wins)">برد</th>
+            <tr className="bg-slate-950/40 text-slate-400 border-b border-white/10 font-semibold text-[11px]">
+              <th className="py-2.5 px-2 text-center w-7 sm:w-8">#</th>
+              <th className="py-2.5 px-2.5 sm:px-3 text-right">بازیکن و تیم</th>
+              <th className="py-2.5 px-1.5 sm:px-2 text-center font-mono" title="بازی (Played)">بازی</th>
+              <th className="py-2.5 px-1.5 sm:px-2 text-center font-mono text-emerald-400" title="برد (Wins)">برد</th>
               {!isBilliards && (
-                <th className="py-2.5 px-2 text-center font-mono text-amber-400/90" title="مساوی (Drawn)">م</th>
+                <th className="py-2.5 px-1.5 sm:px-2 text-center font-mono text-amber-400" title="مساوی (Drawn)">م</th>
               )}
-              <th className="py-2.5 px-2 text-center font-mono text-rose-400/90" title="باخت (Losses)">باخت</th>
-              <th className="py-2.5 px-2 text-center font-mono" title={isBilliards ? 'فریم برده (Frames Won)' : 'گل زده (Goals For)'}>
-                {isBilliards ? 'فریم برده' : 'گ‌ز'}
+              <th className="py-2.5 px-1.5 sm:px-2 text-center font-mono text-rose-400" title="باخت (Losses)">باخت</th>
+              <th className="py-2.5 px-1.5 sm:px-2 text-center font-mono" title={isBilliards ? 'فریم‌های برده (Frames Won - FW)' : 'گل زده (Goals For)'}>
+                {isBilliards ? 'ف‌ب' : 'گ‌ز'}
               </th>
-              <th className="py-2.5 px-2 text-center font-mono" title={isBilliards ? 'فریم باخته (Frames Lost)' : 'گل خورده (Goals Against)'}>
-                {isBilliards ? 'فریم باخته' : 'گ‌خ'}
+              <th className="py-2.5 px-1.5 sm:px-2 text-center font-mono text-slate-400" title={isBilliards ? 'فریم‌های باخته (Frames Lost - FL)' : 'گل خورده (Goals Against)'}>
+                {isBilliards ? 'ف‌خ' : 'گ‌خ'}
               </th>
-              <th className="py-2.5 px-2 text-center font-mono" title={isBilliards ? 'تفاضل فریم (Frame Difference)' : 'تفاضل گل (Goal Difference)'}>
-                {isBilliards ? 'تفاضل فریم' : 'تفاضل'}
+              <th className="py-2.5 px-1.5 sm:px-2 text-center font-mono" title={isBilliards ? 'تفاضل فریم (Frame Difference - FD)' : 'تفاضل گل (Goal Difference)'}>
+                {isBilliards ? 'تفاضل' : 'تفاضل'}
               </th>
-              <th className="py-2.5 px-3 text-center font-mono font-bold text-app-primary" title="امتیاز (Points - برد ۳، باخت ۰)">امتیاز</th>
+              <th className="py-2.5 px-2 sm:px-3 text-center font-mono font-black text-app-primary" title="امتیاز (Points - برد ۳، باخت ۰)">امتیاز</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-app-border/40">
+          <tbody className="divide-y divide-white/[0.06]">
             {standings.map((st, idx) => {
               // استفاده از لیست داینامیک صعود‌کنندگان
               const isQualified = advancingPlayerIds.has(st.playerId); 
@@ -80,21 +80,21 @@ export const GroupTable: React.FC<GroupTableProps> = ({
               return (
                 <tr
                   key={st.playerId}
-                  className={`transition-colors hover:bg-app-primary/10 ${
-                    isQualified ? 'bg-app-primary/10' : ''
+                  className={`transition-colors hover:bg-white/[0.04] ${
+                    isQualified ? 'bg-app-primary/[0.06]' : ''
                   }`}
                 >
                   {/* Rank */}
-                  <td className="py-2.5 px-3 text-center">
+                  <td className="py-2.5 px-2 text-center">
                     <span
-                      className={`inline-flex items-center justify-center w-5 h-5 rounded text-[11px] font-mono font-bold ${
+                      className={`inline-flex items-center justify-center w-5 h-5 rounded-md text-[11px] font-mono font-bold ${
                         isQualified
                           ? idx === 0
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                             : idx === 1
                             ? 'bg-app-primary/20 text-app-primary border border-app-primary/40'
                             : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          : 'text-app-text-muted/60'
+                          : 'text-slate-500'
                       }`}
                     >
                       {idx + 1}
@@ -102,19 +102,19 @@ export const GroupTable: React.FC<GroupTableProps> = ({
                   </td>
 
                   {/* Player & Team */}
-                  <td className="py-2.5 px-3">
-                    <div className="flex items-center gap-2">
-                      <div className="font-semibold text-app-text flex items-center gap-1.5">
-                        <span>{isBilliards ? st.playerName.replace(/\s*\([^)]*\)/g, '').trim() : st.playerName}</span>
+                  <td className="py-2.5 px-2.5 sm:px-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="font-semibold text-white flex items-center gap-1.5 truncate max-w-[100px] sm:max-w-[140px]">
+                        <span className="truncate">{isBilliards ? st.playerName.replace(/\s*\([^)]*\)/g, '').trim() : st.playerName}</span>
                         {isQualified && (
                           <span
                             title={isBilliards ? "سهمیه صعود به مرحله حذفی بیلیارد" : "سهمیه صعود به مرحله حذفی"}
-                            className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                            className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)] shrink-0"
                           />
                         )}
                       </div>
                       {!isBilliards && player?.team && (
-                        <span className="text-[10px] text-app-text-muted truncate max-w-[120px]">
+                        <span className="text-[11px] text-slate-400 truncate max-w-[110px]">
                           ({player.team})
                         </span>
                       )}
@@ -122,38 +122,38 @@ export const GroupTable: React.FC<GroupTableProps> = ({
                   </td>
 
                   {/* Stats */}
-                  <td className="py-2.5 px-2 text-center font-mono tabular-nums text-app-text">
+                  <td className="py-2.5 px-1.5 sm:px-2 text-center font-mono tabular-nums text-slate-200">
                     {st.played}
                   </td>
-                  <td className="py-2.5 px-2 text-center font-mono tabular-nums text-emerald-400 font-semibold">
+                  <td className="py-2.5 px-1.5 sm:px-2 text-center font-mono tabular-nums text-emerald-400 font-semibold">
                     {st.won}
                   </td>
                   {!isBilliards && (
-                    <td className="py-2.5 px-2 text-center font-mono tabular-nums text-amber-400">
+                    <td className="py-2.5 px-1.5 sm:px-2 text-center font-mono tabular-nums text-amber-400">
                       {st.drawn}
                     </td>
                   )}
-                  <td className="py-2.5 px-2 text-center font-mono tabular-nums text-rose-400">
+                  <td className="py-2.5 px-1.5 sm:px-2 text-center font-mono tabular-nums text-rose-400">
                     {st.lost}
                   </td>
-                  <td className="py-2.5 px-2 text-center font-mono tabular-nums text-app-text">
+                  <td className="py-2.5 px-1.5 sm:px-2 text-center font-mono tabular-nums text-slate-200">
                     {st.goalsFor}
                   </td>
-                  <td className="py-2.5 px-2 text-center font-mono tabular-nums text-app-text-muted">
+                  <td className="py-2.5 px-1.5 sm:px-2 text-center font-mono tabular-nums text-slate-400">
                     {st.goalsAgainst}
                   </td>
                   <td
-                    className={`py-2.5 px-2 text-center font-mono tabular-nums font-semibold ${
+                    className={`py-2.5 px-1.5 sm:px-2 text-center font-mono tabular-nums font-semibold ${
                       st.goalDifference > 0
                         ? 'text-emerald-400'
                         : st.goalDifference < 0
                         ? 'text-rose-400'
-                        : 'text-app-text-muted'
+                        : 'text-slate-400'
                     }`}
                   >
                     {st.goalDifference > 0 ? `+${st.goalDifference}` : st.goalDifference}
                   </td>
-                  <td className="py-2.5 px-3 text-center font-mono tabular-nums font-bold text-sm text-app-primary bg-app-primary/10">
+                  <td className="py-2.5 px-2 sm:px-3 text-center font-mono tabular-nums font-black text-sm text-app-primary">
                     {st.points}
                   </td>
                 </tr>
@@ -169,9 +169,7 @@ export const GroupTable: React.FC<GroupTableProps> = ({
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
             <span>
-              {isBilliards
-                ? '۲ نفر برتر هر گروه بر اساس امتیاز و سپس تفاضل فریم به مرحله حذفی صعود می‌کنند.'
-                : groupCount === 4
+              {groupCount === 4
                 ? 'صعود به مرحله یک‌چهارم نهایی: ۲ نفر برتر هر گروه (مجموعاً ۸ بازیکن بدون احتساب تیم‌های سوم)'
                 : groupCount === 3
                 ? advancementRule === 'proportional'
@@ -179,6 +177,8 @@ export const GroupTable: React.FC<GroupTableProps> = ({
                   : 'صعود به مرحله حذفی: ۲ نفر اول هر گروه + ۲ تیم برتر سوم (مجموعاً ۸ بازیکن)'
                 : groupCount === 2
                 ? 'صعود به مرحله نیمه‌نهایی: ۲ نفر برتر هر گروه (مجموعاً ۴ بازیکن)'
+                : isBilliards
+                ? '۲ نفر برتر هر گروه بر اساس امتیاز و سپس تفاضل فریم به مرحله حذفی صعود می‌کنند.'
                 : 'صعود به مرحله حذفی: ۲ نفر برتر هر گروه'}
             </span>
           </div>

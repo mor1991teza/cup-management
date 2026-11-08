@@ -55,6 +55,7 @@ import { EditGroupsModal } from './components/EditGroupsModal';
 import { BlackModeFormatModal } from './components/BlackModeFormatModal';
 import { GroupTable } from './components/GroupTable';
 import { BilliardsGroupTable } from './components/BilliardsGroupTable';
+import { LiveThirdPlaceStandings } from './components/LiveThirdPlaceStandings';
 import { MatchCard } from './components/MatchCard';
 
 import {
@@ -166,6 +167,7 @@ export default function App() {
   const [isEditGroupsOpen, setIsEditGroupsOpen] = useState(false);
   const [isKnockoutRebuildModalOpen, setIsKnockoutRebuildModalOpen] = useState(false);
   const [isBlackModeModalOpen, setIsBlackModeModalOpen] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
 
   const [resourcesPath, setResourcesPath] = useState<string>('');
 
@@ -363,6 +365,29 @@ export default function App() {
 
   const advancingPlayerIds = useMemo(() => {
     const ids = new Set<string>();
+
+    if (state.groups.length === 3 && (state.advancementRule === 'bestThirds' || !state.advancementRule)) {
+      // حالت ۳ گروه با قانون صعود ۲ تیم اول هر گروه + ۲ تیم برتر سوم = ۸ نفر
+      const thirdPlaceStandings: GroupStanding[] = [];
+      state.groups.forEach((g) => {
+        const list = standingsMap[g.id] || [];
+        if (list[0]) ids.add(list[0].playerId);
+        if (list[1]) ids.add(list[1].playerId);
+        if (list[2]) thirdPlaceStandings.push(list[2]);
+      });
+
+      thirdPlaceStandings.sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+        if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+        return a.playerName.localeCompare(b.playerName, 'fa');
+      });
+
+      if (thirdPlaceStandings[0]) ids.add(thirdPlaceStandings[0].playerId);
+      if (thirdPlaceStandings[1]) ids.add(thirdPlaceStandings[1].playerId);
+      return ids;
+    }
+
     state.groups.forEach((g) => {
       const count = typeof g.advanceCount === 'number' ? g.advanceCount : 2;
       const list = standingsMap[g.id] || [];
@@ -371,14 +396,17 @@ export default function App() {
       }
     });
     return ids;
-  }, [state.groups, standingsMap]);
+  }, [state.groups, standingsMap, state.advancementRule]);
 
   const ruleDescription = useMemo(() => {
     if (state.groups.length === 0) return '';
+    if (state.groups.length === 3 && (state.advancementRule === 'bestThirds' || !state.advancementRule)) {
+      return 'قانون صعود: مجموعاً ۸ بازیکن (۲ نفر اول هر گروه + ۲ تیم برتر رتبه سوم) به مرحله یک‌چهارم نهایی صعود می‌کنند.';
+    }
     const totalAdvancing = state.groups.reduce((acc, g) => acc + (g.advanceCount ?? 2), 0);
     const groupSummary = state.groups.map(g => `${g.name}: ${g.advanceCount ?? 2} نفر`).join(' ، ');
     return `قانون صعود: مجموعاً ${totalAdvancing} بازیکن بر اساس سهمیه تعیین‌شده هر گروه (${groupSummary}) به مرحله حذفی صعود می‌کنند.`;
-  }, [state.groups]);
+  }, [state.groups, state.advancementRule]);
 
   const handleAddPlayer = ({ name, team, uniqueId }: { name: string; team?: string; uniqueId?: string }) => {
     const newPlayer: Player = {
@@ -540,33 +568,38 @@ export default function App() {
   const handleStartKnockoutTournament = () => {
     if (state.players.length < 2) return;
     const isDouble = state.tournamentFormat === 'knockout_double';
-    // در حالت بلک (Black Mode)، مرحله اول دقیقاً تک‌حذفی مستقیم است (isDouble = false)
-    const { matches, byePlayerIds, totalRounds } = generateDirectKnockoutInitialMatches(
-      state.players,
-      isDouble
-    );
+    
+    setLoadingMessage('در حال قرعه‌کشی هوشمند جدول مرحله حذفی...');
+    setTimeout(() => {
+      // در حالت بلک (Black Mode)، مرحله اول دقیقاً تک‌حذفی مستقیم است (isDouble = false)
+      const { matches, byePlayerIds, totalRounds } = generateDirectKnockoutInitialMatches(
+        state.players,
+        isDouble
+      );
 
-    trackEvent('tournament_started', {
-      format: state.tournamentFormat,
-      playersCount: state.players.length,
-      matchesCount: matches.length,
-    });
+      trackEvent('tournament_started', {
+        format: state.tournamentFormat,
+        playersCount: state.players.length,
+        matchesCount: matches.length,
+      });
 
-    setState((prev) => ({
-      ...prev,
-      status: 'knockout',
-      matches,
-      byePlayerIds,
-      totalKnockoutRounds: totalRounds,
-      currentKnockoutRoundIndex: 1,
-      blackModeSubsequentFormat: undefined,
-      championId: null,
-      runnerUpId: null,
-      thirdPlaceId: null,
-      updatedAt: Date.now(),
-    }));
+      setState((prev) => ({
+        ...prev,
+        status: 'knockout',
+        matches,
+        byePlayerIds,
+        totalKnockoutRounds: totalRounds,
+        currentKnockoutRoundIndex: 1,
+        blackModeSubsequentFormat: undefined,
+        championId: null,
+        runnerUpId: null,
+        thirdPlaceId: null,
+        updatedAt: Date.now(),
+      }));
 
-    setActiveTab('bracket');
+      setActiveTab('bracket');
+      setLoadingMessage(null);
+    }, 350);
   };
 
   const handleAdvanceKnockoutRound = () => {
@@ -1129,21 +1162,30 @@ export default function App() {
       numberOfGroups: state.numberOfGroups,
     });
 
-    const { groups, groupMatches } = distributePlayers(
-      state.players,
-      state.numberOfGroups,
-      state.groupAdvanceSettings
+    setLoadingMessage(
+      state.gameType === 'billiards'
+        ? 'در حال قرعه‌کشی و چینش جداول رده‌بندی بیلیارد...'
+        : 'در حال قرعه‌کشی و چیدمان متوازن گروه‌های مسابقات...'
     );
 
-    setState((prev) => ({
-      ...prev,
-      status: 'group',
-      groups,
-      matches: groupMatches,
-      updatedAt: Date.now(),
-    }));
+    setTimeout(() => {
+      const { groups, groupMatches } = distributePlayers(
+        state.players,
+        state.numberOfGroups,
+        state.groupAdvanceSettings
+      );
 
-    setActiveTab('main');
+      setState((prev) => ({
+        ...prev,
+        status: 'group',
+        groups,
+        matches: groupMatches,
+        updatedAt: Date.now(),
+      }));
+
+      setActiveTab('main');
+      setLoadingMessage(null);
+    }, 350);
   };
 
   const handleSaveScore = (
@@ -1437,24 +1479,29 @@ export default function App() {
   }, [state.groups, state.matches, standingsMap, state.advancementRule, state.players.length]);
 
   const executeAdvanceToKnockout = () => {
-    const knockoutMatches = generateKnockoutStage(
-      state.groups,
-      standingsMap,
-      state.hasThirdPlaceMatch,
-      state.advancementRule || 'bestThirds'
-    );
-
-    const existingGroupMatches = state.matches.filter((m) => m.stage === 'group');
-
-    setState((prev) => ({
-      ...prev,
-      status: 'knockout',
-      matches: [...existingGroupMatches, ...knockoutMatches],
-      updatedAt: Date.now(),
-    }));
-
+    setLoadingMessage('در حال پردازش رتبه‌ها و چینش براکت مرحله حذفی...');
     setIsKnockoutRebuildModalOpen(false);
-    setActiveTab('bracket');
+
+    setTimeout(() => {
+      const knockoutMatches = generateKnockoutStage(
+        state.groups,
+        standingsMap,
+        state.hasThirdPlaceMatch,
+        state.advancementRule || 'bestThirds'
+      );
+
+      const existingGroupMatches = state.matches.filter((m) => m.stage === 'group');
+
+      setState((prev) => ({
+        ...prev,
+        status: 'knockout',
+        matches: [...existingGroupMatches, ...knockoutMatches],
+        updatedAt: Date.now(),
+      }));
+
+      setActiveTab('bracket');
+      setLoadingMessage(null);
+    }, 350);
   };
 
   const handleAdvanceToKnockout = () => {
@@ -1872,6 +1919,8 @@ export default function App() {
                             standings={standingsMap[group.id] || []}
                             playersMap={playersMap}
                             advancingPlayerIds={advancingPlayerIds}
+                            advancementRule={state.advancementRule || 'bestThirds'}
+                            groupCount={state.groups.length}
                           />
                         ))}
                       </div>
@@ -1902,7 +1951,16 @@ export default function App() {
                     </div>
                   )}
 
-                  {state.gameType !== 'billiards' && (
+                  {/* رده‌بندی زنده نفرات سوم در حالت ۳ گروه */}
+                  {state.groups.length === 3 && (state.advancementRule === 'bestThirds' || !state.advancementRule) && (
+                    <LiveThirdPlaceStandings
+                      groups={state.groups}
+                      standingsMap={standingsMap}
+                      gameType={state.gameType || 'pes'}
+                    />
+                  )}
+
+                  {state.gameType !== 'billiards' && state.groups.length !== 3 && (
                     <div className="mt-2 p-3 bg-app-surface/60 border border-app-border rounded-lg text-center text-xs text-app-text-muted font-medium">
                       {ruleDescription}
                     </div>
@@ -1998,6 +2056,8 @@ export default function App() {
                           standings={standingsMap[group.id] || []}
                           playersMap={playersMap}
                           advancingPlayerIds={advancingPlayerIds}
+                          advancementRule={state.advancementRule || 'bestThirds'}
+                          groupCount={state.groups.length}
                         />
                       ))}
                     </div>
@@ -2028,10 +2088,21 @@ export default function App() {
                       ))}
                     </div>
 
-                    <div className="mt-2 p-3 bg-app-surface/60 border border-app-border rounded-lg text-center text-xs text-app-text-muted font-medium">
-                      {ruleDescription}
-                    </div>
+                    {state.groups.length !== 3 && (
+                      <div className="mt-2 p-3 bg-app-surface/60 border border-app-border rounded-lg text-center text-xs text-app-text-muted font-medium">
+                        {ruleDescription}
+                      </div>
+                    )}
                   </>
+                )}
+
+                {/* رده‌بندی زنده نفرات سوم در نمای تمام‌صفحه */}
+                {state.groups.length === 3 && (state.advancementRule === 'bestThirds' || !state.advancementRule) && (
+                  <LiveThirdPlaceStandings
+                    groups={state.groups}
+                    standingsMap={standingsMap}
+                    gameType={state.gameType || 'pes'}
+                  />
                 )}
               </div>
             )}
@@ -2149,41 +2220,41 @@ export default function App() {
 
       {/* مودال تایید بازسازی براکت مرحله حذفی */}
       {isKnockoutRebuildModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" dir="rtl">
-          <div className="card-stadium w-full max-w-md rounded-2xl border border-app-border p-6 shadow-2xl relative bg-app-surface text-app-text">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in" dir="rtl">
+          <div className="glass-modal w-full max-w-md rounded-3xl border border-white/10 p-7 sm:p-8 shadow-2xl relative">
             <button
               onClick={() => {
                 sound.playClick();
                 setIsKnockoutRebuildModalOpen(false);
               }}
-              className="absolute top-4 left-4 text-app-text-muted hover:text-app-text transition-colors"
+              className="absolute top-5 left-5 text-slate-400 hover:text-white transition-colors cursor-pointer p-1 rounded-lg hover:bg-white/10"
               title="بستن پنجره"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center gap-3 text-amber-400 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-950/60 border border-amber-800/80 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-amber-400" />
+            <div className="flex items-center gap-3.5 text-amber-400 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-inner">
+                <AlertTriangle className="w-6 h-6 text-amber-400" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-app-text">بازسازی براکت مرحله حذفی</h3>
-                <span className="text-xs text-amber-400">شروع مجدد مرحله حذفی</span>
+                <h3 className="text-base font-bold text-white">بازسازی براکت مرحله حذفی</h3>
+                <span className="text-xs text-amber-400/90 font-medium">شروع مجدد مرحله حذفی</span>
               </div>
             </div>
 
-            <p className="text-xs text-app-text-muted leading-relaxed my-4">
+            <p className="text-xs text-slate-300 leading-relaxed my-5">
               مسابقات مرحله حذفی قبلاً آغاز شده است. آیا مطمئن هستید که می‌خواهید براکت حذفی را بر اساس رتبه‌های جدید گروه‌ها از نو بسازید؟ تمام نتایج ثبت‌شده مرحله حذفی پاک خواهند شد.
             </p>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
               <button
                 type="button"
                 onClick={() => {
                   sound.playClick();
                   setIsKnockoutRebuildModalOpen(false);
                 }}
-                className="px-4 py-2 text-xs font-semibold text-app-text-muted hover:text-app-text bg-app-surface hover:bg-app-surface-hover border border-app-border rounded-lg transition-colors cursor-pointer"
+                className="btn-secondary-glass px-5 py-2.5 text-xs font-semibold rounded-xl cursor-pointer"
               >
                 انصراف
               </button>
@@ -2193,9 +2264,9 @@ export default function App() {
                   sound.playWhistle();
                   executeAdvanceToKnockout();
                 }}
-                className="px-4 py-2 text-xs font-bold text-white bg-app-primary hover:bg-app-primary-hover rounded-lg shadow-md transition-all cursor-pointer"
+                className="btn-primary-glass px-5 py-2.5 text-xs font-bold rounded-xl cursor-pointer bg-amber-500 hover:bg-amber-400 text-slate-950"
               >
-                بله، بازسازی براکت حذفی
+                بله، مطمئنم
               </button>
             </div>
           </div>
@@ -2238,6 +2309,25 @@ export default function App() {
         onSelectFormat={handleConfirmBlackModeFormat}
         roundNumber={(state.currentKnockoutRoundIndex || 1) + 1}
       />
+
+      {/* Glassmorphic Operation Loading Overlay */}
+      {loadingMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in" dir="rtl">
+          <div className="glass-modal rounded-3xl p-8 border border-white/10 shadow-2xl flex flex-col items-center gap-4 text-center max-w-sm w-full">
+            <div className="relative w-14 h-14">
+              <div className="absolute inset-0 rounded-full border-2 border-white/10 border-t-emerald-400 animate-spin" />
+              <div
+                className="absolute inset-2 rounded-full border-2 border-white/5 border-b-emerald-400/60 animate-spin"
+                style={{ animationDirection: 'reverse', animationDuration: '1.2s' }}
+              />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white tracking-wide">{loadingMessage}</h4>
+              <p className="text-[11px] text-slate-400">سامانه هوشمند مدیریت مسابقات</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -23,8 +23,8 @@ export const BlackModeFormatModal: React.FC<BlackModeFormatModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in" dir="rtl">
-      <div className="card-stadium w-full max-w-lg rounded-3xl border-2 border-app-primary/60 bg-app-surface text-app-text p-6 sm:p-7 shadow-2xl relative overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in" dir="rtl">
+      <div className="glass-modal w-full max-w-lg rounded-3xl border border-white/10 text-white p-7 sm:p-8 shadow-2xl relative overflow-hidden">
         {/* Decorative Top Radial Glow */}
         <div className="absolute top-0 right-1/2 translate-x-1/2 w-72 h-32 bg-app-primary/15 blur-3xl pointer-events-none rounded-full" />
 
@@ -163,7 +163,7 @@ export const BlackModeFormatModal: React.FC<BlackModeFormatModalProps> = ({
           <button
             type="button"
             onClick={handleConfirm}
-            className="w-full py-3 px-4 bg-app-primary hover:bg-app-primary-hover text-white font-bold text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="btn-primary-glass w-full py-3.5 px-4 rounded-2xl font-bold text-sm shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
           >
             <Swords className="w-4 h-4" />
             <span>
