@@ -202,11 +202,13 @@ export const KnockoutFixturesView: React.FC<KnockoutFixturesViewProps> = ({
                 <h4 className="text-sm sm:text-base font-extrabold text-white flex items-center gap-2 justify-center md:justify-start">
                   <span>مسابقه پلی‌آف تساوی‌شکنی با موفقیت پایان یافت!</span>
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/40">
-                    فینالیست دوم مشخص شد
+                    آخرین صعودکننده مشخص شد
                   </span>
                 </h4>
                 <p className="text-xs text-slate-300 mt-0.5">
-                  اکنون می‌توانید بین برگزاری مسابقه فینال رسمی یا اعلام مستقیم قهرمان از روی جدول تصمیم‌گیری کنید.
+                  {(state.groups[0]?.advanceCount || 2) > 2
+                    ? 'اکنون می‌توانید براکت مرحله حذفی را ایجاد کنید.'
+                    : 'اکنون می‌توانید بین برگزاری مسابقه فینال رسمی یا اعلام مستقیم قهرمان از روی جدول تصمیم‌گیری کنید.'}
                 </p>
               </div>
             </div>
@@ -219,7 +221,11 @@ export const KnockoutFixturesView: React.FC<KnockoutFixturesViewProps> = ({
               className="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 cursor-pointer shrink-0"
             >
               <Trophy className="w-4 h-4" />
-              <span>تصمیم‌گیری فینال لیگ 🏆</span>
+              <span>
+                {(state.groups[0]?.advanceCount || 2) > 2
+                  ? 'ساخت براکت مرحله حذفی 🏆'
+                  : 'تصمیم‌گیری فینال لیگ 🏆'}
+              </span>
             </button>
           </div>
         )}

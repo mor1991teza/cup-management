@@ -81,10 +81,10 @@ export const PesSingleGroupTieModal: React.FC<PesSingleGroupTieModalProps> = ({
             <Scale className="w-8 h-8 text-amber-400 animate-pulse" />
           </div>
           <h3 className="text-lg sm:text-xl font-black text-white tracking-wide">
-            تساوی امتیاز و تفاضل برای رتبه دوم لیگ PES
+            تساوی برای رتبه {rank2.rank || 2} و صعود به مرحله بعدی لیگ PES
           </h3>
           <p className="text-xs sm:text-sm text-rose-200/90 leading-relaxed max-w-md mx-auto">
-            بازیکنان <strong className="text-amber-300 font-bold">{cleanName2}</strong> و <strong className="text-sky-300 font-bold">{cleanName3}</strong> دارای امتیاز مساوی (<span className="font-mono font-bold text-amber-300">{rank2.points} امتیاز</span>) و تفاضل گل مساوی (<span className="font-mono font-bold text-rose-300">{rank2.goalDifference > 0 ? `+${rank2.goalDifference}` : rank2.goalDifference}</span>) برای رتبه دوم و صعود به فینال هستند.
+            بازیکنان <strong className="text-amber-300 font-bold">{cleanName2}</strong> و <strong className="text-sky-300 font-bold">{cleanName3}</strong> دارای تمامی معیارهای مساوی (<span className="font-mono font-bold text-amber-300">{rank2.points} امتیاز</span>، <span className="font-mono font-bold text-rose-300">تفاضل {rank2.goalDifference > 0 ? `+${rank2.goalDifference}` : rank2.goalDifference}</span>) برای رتبه {rank2.rank || 2} و صعود هستند.
           </p>
         </div>
 
@@ -92,7 +92,7 @@ export const PesSingleGroupTieModal: React.FC<PesSingleGroupTieModalProps> = ({
         <div className="grid grid-cols-2 gap-3 mb-5">
           {/* Player 2 Card */}
           <div className="bg-rose-950/30 border border-rose-500/30 rounded-2xl p-3 text-center">
-            <div className="text-xs text-rose-400 font-mono font-bold">رتبه دوم جدول</div>
+            <div className="text-xs text-rose-400 font-mono font-bold">رتبه {rank2.rank || 2} جدول</div>
             <div className="font-black text-sm text-white truncate mt-1">{cleanName2}</div>
             {player2?.team && (
               <div className="text-[11px] text-rose-300/80 truncate mt-0.5">{player2.team}</div>
@@ -108,7 +108,7 @@ export const PesSingleGroupTieModal: React.FC<PesSingleGroupTieModalProps> = ({
 
           {/* Player 3 Card */}
           <div className="bg-sky-950/30 border border-sky-500/30 rounded-2xl p-3 text-center">
-            <div className="text-xs text-sky-400 font-mono font-bold">رتبه سوم جدول</div>
+            <div className="text-xs text-sky-400 font-mono font-bold">رتبه {rank3.rank || (rank2.rank ? rank2.rank + 1 : 3)} جدول</div>
             <div className="font-black text-sm text-white truncate mt-1">{cleanName3}</div>
             {player3?.team && (
               <div className="text-[11px] text-sky-300/80 truncate mt-0.5">{player3.team}</div>
@@ -147,7 +147,7 @@ export const PesSingleGroupTieModal: React.FC<PesSingleGroupTieModalProps> = ({
         {/* Decision Options */}
         <div className="space-y-2.5">
           <div className="text-xs font-bold text-slate-300 mb-1">
-            شیوه تعیین فینالیست دوم را انتخاب کنید:
+            شیوه تعیین بازیکن صعودکننده را انتخاب کنید:
           </div>
 
           {/* Option 1: Head to Head */}
@@ -172,7 +172,7 @@ export const PesSingleGroupTieModal: React.FC<PesSingleGroupTieModalProps> = ({
                 <div className="font-bold">۱. ملاک بودن نتیجه بازی رو در رو</div>
                 <div className="text-[11px] text-rose-300/80 font-normal">
                   {directWinnerId
-                    ? `برنده مسابقه قبلی (${directWinnerName}) فینالیست می‌شود`
+                    ? `برنده مسابقه قبلی (${directWinnerName}) صعود می‌کند`
                     : isDirectDraw
                     ? `بازی مساوی بود؛ اولویت با گل‌زده بیشتر (${rank2.goalsFor >= rank3.goalsFor ? cleanName2 : cleanName3})`
                     : 'بررسی نتیجه بازی مستقیم دو بازیکن در جدول لیگ'}

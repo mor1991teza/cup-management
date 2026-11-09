@@ -1557,32 +1557,60 @@ export default function App() {
     }, 350);
   };
 
+  const executeAdvanceToKnockoutForSingleGroup = (K: number) => {
+    setLoadingMessage(`در حال آماده‌سازی و ساخت براکت مرحله حذفی ${K} نفره...`);
+    setTimeout(() => {
+      const existingGroupMatches = state.matches.filter((m) => m.stage === 'group');
+
+      const knockoutMatches = generateKnockoutStage(
+        state.groups,
+        standingsMap,
+        true,
+        null
+      );
+
+      setState((prev) => ({
+        ...prev,
+        status: 'knockout',
+        matches: [...existingGroupMatches, ...knockoutMatches],
+        updatedAt: Date.now(),
+      }));
+
+      setActiveTab('bracket');
+      setLoadingMessage(null);
+    }, 350);
+  };
+
   const singleGroupStandings = useMemo(() => {
     if (state.groups.length !== 1) return [];
     return standingsMap[state.groups[0]?.id] || [];
   }, [state.groups, standingsMap]);
 
   const directMatchForBilliardsTie = useMemo(() => {
-    if (state.groups.length !== 1 || singleGroupStandings.length < 3) return undefined;
-    const p2 = singleGroupStandings[1].playerId;
-    const p3 = singleGroupStandings[2].playerId;
+    if (state.groups.length !== 1 || singleGroupStandings.length < 2) return undefined;
+    const K = state.groups[0]?.advanceCount || 2;
+    if (singleGroupStandings.length < K + 1) return undefined;
+    const pK = singleGroupStandings[K - 1].playerId;
+    const pK1 = singleGroupStandings[K].playerId;
     return state.matches.find(
       (m) =>
         m.stage === 'group' &&
-        ((m.homePlayerId === p2 && m.awayPlayerId === p3) ||
-         (m.homePlayerId === p3 && m.awayPlayerId === p2))
+        ((m.homePlayerId === pK && m.awayPlayerId === pK1) ||
+         (m.homePlayerId === pK1 && m.awayPlayerId === pK))
     );
   }, [state.groups, singleGroupStandings, state.matches]);
 
   const directMatchForPesTie = useMemo(() => {
-    if (state.groups.length !== 1 || singleGroupStandings.length < 3) return undefined;
-    const p2 = singleGroupStandings[1].playerId;
-    const p3 = singleGroupStandings[2].playerId;
+    if (state.groups.length !== 1 || singleGroupStandings.length < 2) return undefined;
+    const K = state.groups[0]?.advanceCount || 2;
+    if (singleGroupStandings.length < K + 1) return undefined;
+    const pK = singleGroupStandings[K - 1].playerId;
+    const pK1 = singleGroupStandings[K].playerId;
     return state.matches.find(
       (m) =>
         m.stage === 'group' &&
-        ((m.homePlayerId === p2 && m.awayPlayerId === p3) ||
-         (m.homePlayerId === p3 && m.awayPlayerId === p2))
+        ((m.homePlayerId === pK && m.awayPlayerId === pK1) ||
+         (m.homePlayerId === pK1 && m.awayPlayerId === pK))
     );
   }, [state.groups, singleGroupStandings, state.matches]);
 
@@ -1605,13 +1633,14 @@ export default function App() {
   const handleAdvanceToKnockout = () => {
     // 🔴 سناریوی اختصاصی «۱ گروه» (لیگ دوره‌ای)
     if (state.groups.length === 1) {
-      if (singleGroupStandings.length < 2) return;
+      const K = state.groups[0]?.advanceCount || 2;
+      if (singleGroupStandings.length < K) return;
 
-      const rank2 = singleGroupStandings[1];
-      const rank3 = singleGroupStandings[2];
+      const rankK = singleGroupStandings[K - 1];
+      const rankKPlus1 = singleGroupStandings[K];
 
       if (state.gameType === 'billiards') {
-        const hasTieForSecond = rank3 && rank2.points === rank3.points;
+        const hasTieForSecond = rankKPlus1 && rankK.points === rankKPlus1.points;
         const existingPlayoff = state.matches.find((m) => m.id === 'ko-billiards-tiebreaker');
 
         if (hasTieForSecond && (!existingPlayoff || !existingPlayoff.isFinished) && !confirmedSecondPlaceId) {
@@ -1619,25 +1648,61 @@ export default function App() {
           return;
         }
 
-        setIsBilliardsSingleGroupFinalDecisionModalOpen(true);
+        if (K === 2) {
+          setIsBilliardsSingleGroupFinalDecisionModalOpen(true);
+        } else {
+          executeAdvanceToKnockoutForSingleGroup(K);
+        }
         return;
       } else {
         // برای PES 2021
-        // 🔴 بررسی اولویت‌بندی: ابتدا شرط بررسی تساوی بین رتبه‌های صعودی (رتبه ۲ و ۳)
-        const hasTieForSecond = Boolean(
-          rank3 && (rank2.points === rank3.points)
-        );
+        // 🔴 بررسی اولویت‌بندی داینامیک: شرط تساوی مطلق در مرز صعود (نفر K و K+1)
+        let hasBoundaryTie = false;
+        if (rankK && rankKPlus1) {
+          const isStatsIdentical =
+            rankK.played === rankKPlus1.played &&
+            rankK.won === rankKPlus1.won &&
+            rankK.drawn === rankKPlus1.drawn &&
+            rankK.lost === rankKPlus1.lost &&
+            rankK.goalsFor === rankKPlus1.goalsFor &&
+            rankK.goalsAgainst === rankKPlus1.goalsAgainst &&
+            rankK.goalDifference === rankKPlus1.goalDifference &&
+            rankK.points === rankKPlus1.points;
+
+          const directMatch = state.matches.find(
+            (m) =>
+              m.stage === 'group' &&
+              m.isFinished &&
+              ((m.homePlayerId === rankK.playerId && m.awayPlayerId === rankKPlus1.playerId) ||
+               (m.homePlayerId === rankKPlus1.playerId && m.awayPlayerId === rankK.playerId))
+          );
+
+          const isHeadToHeadTied =
+            !directMatch ||
+            directMatch.homeScore === null ||
+            directMatch.awayScore === null ||
+            directMatch.homeScore === directMatch.awayScore;
+
+          hasBoundaryTie = isStatsIdentical && isHeadToHeadTied;
+        }
+
         const existingPlayoff = state.matches.find((m) => m.id === 'ko-pes-tiebreaker');
 
-        // اگر بین رتبه ۲ و ۳ تساوی وجود دارد و هنوز مشخص نشده است، ابتدا پاپ‌آپ تساوی باز می‌شود
-        if (hasTieForSecond && (!existingPlayoff || !existingPlayoff.isFinished) && !confirmedSecondPlaceId) {
+        // اگر بین رتبه K و K+1 تساوی مطلق وجود دارد و هنوز مشخص نشده است، ابتدا پاپ‌آپ تساوی باز می‌شود
+        if (hasBoundaryTie && (!existingPlayoff || !existingPlayoff.isFinished) && !confirmedSecondPlaceId) {
           setIsPesSingleGroupTieModalOpen(true);
           return;
         }
 
-        // فقط در صورت عدم وجود تساوی، یا پس از مشخص شدن برنده تساوی، پاپ‌آپ تعیین قهرمان باز می‌شود
-        setIsPesSingleGroupDecisionModalOpen(true);
-        return;
+        // تفکیک بر اساس K:
+        if (K === 2) {
+          setIsPesSingleGroupDecisionModalOpen(true);
+          return;
+        } else {
+          // برای K > 2 (۴، ۸، ۱۶ نفر): ساخت براکت حذفی استاندارد لیگ
+          executeAdvanceToKnockoutForSingleGroup(K);
+          return;
+        }
       }
     }
 
@@ -1675,8 +1740,13 @@ export default function App() {
     setIsPesSingleGroupTieModalOpen(false);
     setConfirmedSecondPlaceId(winnerId);
     sound.playClick();
+    const K = state.groups[0]?.advanceCount || 2;
     setTimeout(() => {
-      setIsPesSingleGroupDecisionModalOpen(true);
+      if (K === 2) {
+        setIsPesSingleGroupDecisionModalOpen(true);
+      } else {
+        executeAdvanceToKnockoutForSingleGroup(K);
+      }
     }, 200);
   };
 
@@ -1684,16 +1754,22 @@ export default function App() {
     setIsPesSingleGroupTieModalOpen(false);
     setConfirmedSecondPlaceId(winnerId);
     sound.playClick();
+    const K = state.groups[0]?.advanceCount || 2;
     setTimeout(() => {
-      setIsPesSingleGroupDecisionModalOpen(true);
+      if (K === 2) {
+        setIsPesSingleGroupDecisionModalOpen(true);
+      } else {
+        executeAdvanceToKnockoutForSingleGroup(K);
+      }
     }, 200);
   };
 
   const handlePesSelectPlayoffMatch = () => {
     setIsPesSingleGroupTieModalOpen(false);
-    if (singleGroupStandings.length < 3) return;
-    const rank2 = singleGroupStandings[1];
-    const rank3 = singleGroupStandings[2];
+    const K = state.groups[0]?.advanceCount || 2;
+    if (singleGroupStandings.length < K + 1) return;
+    const rankK = singleGroupStandings[K - 1];
+    const rankKPlus1 = singleGroupStandings[K];
 
     setLoadingMessage('در حال آماده‌سازی مسابقه پلی‌آف تساوی‌شکنی PES...');
 
@@ -1703,12 +1779,12 @@ export default function App() {
         id: 'ko-pes-tiebreaker',
         stage: 'knockout',
         knockoutRound: 'tiebreaker',
-        knockoutRoundLabel: 'دیدار پلی‌آف تعیین رتبه دوم و فینالیست لیگ PES',
+        knockoutRoundLabel: `دیدار پلی‌آف تعیین رتبه ${K} و آخرین صعودکننده لیگ PES`,
         roundLabel: 'مسابقه پلی‌آف تساوی‌شکنی',
-        homePlayerId: rank2.playerId,
-        awayPlayerId: rank3.playerId,
-        homeSeedLabel: 'رتبه ۲ جدول',
-        awaySeedLabel: 'رتبه ۳ جدول',
+        homePlayerId: rankK.playerId,
+        awayPlayerId: rankKPlus1.playerId,
+        homeSeedLabel: `رتبه ${K} جدول`,
+        awaySeedLabel: `رتبه ${K + 1} جدول`,
         homeScore: null,
         awayScore: null,
         isFinished: false,
