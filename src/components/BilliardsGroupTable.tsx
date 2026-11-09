@@ -22,14 +22,14 @@ export const BilliardsGroupTable: React.FC<BilliardsGroupTableProps> = ({
   advancementRule = 'bestThirds',
   groupCount,
 }) => {
-  const displayTitle = title || (group ? group.name : 'جدول رده‌بندی مسابقات بیلیارد');
+  const displayTitle = groupCount === 1 ? 'جدول رده‌بندی لیگ بیلیارد' : (title || (group ? group.name : 'جدول رده‌بندی مسابقات بیلیارد'));
 
   return (
     <div className="card-stadium rounded-2xl border border-emerald-500/20 overflow-hidden shadow-2xl bg-slate-950/70 text-emerald-100">
       {/* Table Header Card Top */}
       <div className="px-5 py-4 bg-emerald-950/50 border-b border-emerald-500/20 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {group && (
+          {group && groupCount !== 1 && (
             <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center font-black text-xs text-emerald-300 font-mono shadow-sm">
               {group.code}
             </div>
@@ -179,7 +179,9 @@ export const BilliardsGroupTable: React.FC<BilliardsGroupTableProps> = ({
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] shrink-0" />
             <span className="font-medium text-slate-200">
-              {groupCount === 3
+              {groupCount === 1
+                ? 'نفر اول و دوم به عنوان قهرمان و نایب‌قهرمان (یا صعودکننده به فینال) معرفی می‌شوند.'
+                : groupCount === 3
                 ? (advancementRule === 'proportional'
                     ? 'صعود به مرحله حذفی: ۳ نفر از گروه‌های ۵ نفره و ۲ نفر از گروه ۴ نفره (مجموعاً ۸ بازیکن)'
                     : 'صعود به مرحله حذفی: ۲ نفر اول هر گروه + ۲ تیم برتر سوم (مجموعاً ۸ بازیکن)')

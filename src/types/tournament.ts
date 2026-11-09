@@ -11,7 +11,8 @@ export type KnockoutRoundType =
   | 'thirdPlace'
   | 'final'
   | 'grandFinal'
-  | 'grandFinalReset';
+  | 'grandFinalReset'
+  | 'tiebreaker';
 
 export interface Player {
   id: string;
@@ -68,6 +69,7 @@ export interface Match {
 
   // Bo3 & Knockout Tournaments support
   isBo3?: boolean;
+  billiardsFormat?: BilliardsFormat;
   games?: MatchGame[];
   homeGamesWon?: number; // 0, 1, 2
   awayGamesWon?: number; // 0, 1, 2
@@ -104,7 +106,7 @@ export interface TournamentState {
   gameType?: GameType;
   billiardsFormat?: BilliardsFormat;
   tournamentFormat?: TournamentFormat; // 'group_knockout' | 'knockout_single' | 'knockout_double'
-  numberOfGroups: number; // 2, 3, 4, 8 (used for group_knockout)
+  numberOfGroups: number; // 1, 2, 3, 4, 8 (used for group_knockout)
   targetPlayerCount?: number; // 2, 4, 8, 16, 32, 64 (used for knockout)
   status: TournamentStage;
   players: Player[];

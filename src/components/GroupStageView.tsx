@@ -239,7 +239,11 @@ export const GroupStageView: React.FC<GroupStageViewProps> = ({
             >
               <Sparkles className="w-4 h-4 text-emerald-300" />
               <span>
-                {state.gameType === 'billiards' ? 'ورود به مرحله حذفی بیلیارد' : 'ورود به مرحله حذفی (تکمیل گروهی)'}
+                {state.groups.length === 1
+                  ? (state.gameType === 'billiards' ? 'تعیین تکلیف قهرمان لیگ بیلیارد 🏆' : 'پایان مسابقات و تعیین قهرمان 🏆')
+                  : state.gameType === 'billiards'
+                  ? 'ورود به مرحله حذفی بیلیارد'
+                  : 'ورود به مرحله حذفی (تکمیل گروهی)'}
               </span>
               <ArrowLeft className="w-4 h-4" />
             </button>

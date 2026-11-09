@@ -22,6 +22,7 @@ export const KNOCKOUT_ROUND_LABELS: Record<KnockoutRoundType, string> = {
   final: 'فینال قهرمانی (۲ تیم - ۱ مسابقه)',
   grandFinal: 'فینال کل (Grand Final)',
   grandFinalReset: 'فینال نهایی دوم (Reset Match)',
+  tiebreaker: 'مسابقه پلی‌آف تساوی‌شکنی',
 };
 
 // Preset PES 2021 Star Players for quick testing (up to 64 players)
@@ -247,7 +248,7 @@ export function distributePlayers(
 
     groups.push({
       id: `group-${code.toLowerCase()}`,
-      name: `گروه ${code}`,
+      name: numGroups === 1 ? 'جدول رده‌بندی لیگ' : `گروه ${code}`,
       code,
       playerIds: [],
       advanceCount,

@@ -1124,8 +1124,8 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                         <span>تعیین تعداد گروه‌های بیلیارد:</span>
                       </label>
 
-                      <div className="grid grid-cols-4 gap-2">
-                        {[2, 3, 4, 8].map((num) => {
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        {[1, 2, 3, 4, 8].map((num) => {
                           const isSelected = numberOfGroups === num;
                           return (
                             <button
@@ -1139,17 +1139,17 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                                 }
                                 onSetNumberOfGroups(num);
                               }}
-                              className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                              className={`p-2.5 rounded-xl border text-center transition-all active:scale-95 cursor-pointer ${
                                 isSelected
                                   ? 'bg-emerald-950/90 border-emerald-400 text-white shadow-md ring-2 ring-emerald-500/40'
                                   : 'bg-[#04190f] border-emerald-900/60 text-slate-400 hover:text-slate-200 hover:border-emerald-700'
                               }`}
                             >
                               <div className="text-sm font-black font-mono tabular-nums text-white">
-                                {num} گروه
+                                {num === 1 ? '۱ جدول (لیگ)' : `${num} گروه`}
                               </div>
                               <div className="text-[10px] text-emerald-400/80 mt-0.5">
-                                حداقل {num * 2} نفر
+                                حداقل {num === 1 ? 2 : num * 2} نفر
                               </div>
                             </button>
                           );
@@ -1512,8 +1512,8 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                   <span>تعیین تعداد گروه‌ها</span>
                 </label>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[2, 3, 4, 8].map((num) => {
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {[1, 2, 3, 4, 8].map((num) => {
                     const isSelected = numberOfGroups === num;
 
                     return (
@@ -1528,17 +1528,17 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                           }
                           onSetNumberOfGroups(num);
                         }}
-                        className={`p-2.5 rounded-lg border text-center transition-all cursor-pointer ${
+                        className={`p-2.5 rounded-lg border text-center transition-all active:scale-95 cursor-pointer ${
                           isSelected
                             ? 'bg-rose-950/80 border-rose-500 text-white shadow-sm ring-1 ring-rose-500/40'
                             : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
                         }`}
                       >
                         <div className="text-base sm:text-lg font-bold font-mono tabular-nums">
-                          {num} گروه
+                          {num === 1 ? '۱ جدول (لیگ)' : `${num} گروه`}
                         </div>
                         <div className="text-[10px] text-slate-400 mt-0.5">
-                          حداقل {num * 2} بازیکن
+                          حداقل {num === 1 ? 2 : num * 2} بازیکن
                         </div>
                       </button>
                     );

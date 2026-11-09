@@ -51,7 +51,7 @@ export const DashboardStatus: React.FC<DashboardStatusProps> = ({
       case 'setup':
         return 'مرحله ۱: ثبت‌نام و قرعه‌کشی';
       case 'group':
-        return 'مرحله ۲: دور گروهی مسابقات';
+        return state.groups.length === 1 ? 'جدول رده‌بندی لیگ مسابقات' : 'مرحله ۲: دور گروهی مسابقات';
       case 'knockout':
         if (state.tournamentFormat === 'knockout_single') {
           return `مرحله حذفی تک: دور ${state.currentKnockoutRoundIndex || 1} مسابقات`;
@@ -136,7 +136,11 @@ export const DashboardStatus: React.FC<DashboardStatusProps> = ({
                 className="btn-primary-glass flex items-center justify-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white rounded-xl shadow-md transition-all whitespace-nowrap cursor-pointer"
               >
                 <Trophy className="w-3.5 h-3.5" />
-                <span>شروع مرحله حذفی (تکمیل گروهی)</span>
+                <span>
+                  {state.groups.length === 1
+                    ? (state.gameType === 'billiards' ? 'تعیین تکلیف قهرمان لیگ 🏆' : 'پایان لیگ و تعیین قهرمان 🏆')
+                    : 'شروع مرحله حذفی (تکمیل گروهی)'}
+                </span>
               </button>
             )}
           </div>

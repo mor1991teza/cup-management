@@ -41,7 +41,7 @@ interface EditGroupsModalProps {
   onUpdateGroupAdvanceCount?: (groupCode: string, count: number) => void;
 }
 
-const SUPPORTED_GROUP_COUNTS = [2, 3, 4, 8];
+const SUPPORTED_GROUP_COUNTS = [1, 2, 3, 4, 8];
 
 export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
   isOpen,
@@ -342,10 +342,10 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
                   با تغییر تعداد گروه‌ها، بازیکنان فعلی ({totalPlayersCount} نفر) مجدداً بین گروه‌های جدید تقسیم شده و برنامه مسابقات هفته بازتولید می‌شود:
                 </p>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                   {SUPPORTED_GROUP_COUNTS.map((count) => {
                     const isSelected = numberOfGroups === count;
-                    const minPlayers = count * 2;
+                    const minPlayers = count === 1 ? 2 : count * 2;
                     const isAllowed = totalPlayersCount >= minPlayers;
 
                     return (
@@ -354,7 +354,7 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
                         type="button"
                         disabled={!isAllowed}
                         onClick={() => handleSelectGroupCount(count)}
-                        className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center ${
+                        className={`p-3 rounded-xl border text-center transition-all active:scale-95 flex flex-col items-center justify-center ${
                           isSelected
                             ? 'bg-rose-950/90 border-rose-500 text-white shadow-lg ring-1 ring-rose-500/50'
                             : isAllowed
@@ -362,8 +362,8 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
                             : 'bg-slate-900/30 border-slate-900 text-slate-600 cursor-not-allowed opacity-60'
                         }`}
                       >
-                        <div className="text-base sm:text-lg font-black font-mono">
-                          {count} گروه
+                        <div className="text-sm sm:text-base font-black font-mono">
+                          {count === 1 ? '۱ جدول (لیگ)' : `${count} گروه`}
                         </div>
                         <div className="text-[10px] mt-0.5">
                           {isSelected ? (

@@ -56,6 +56,10 @@ import { BlackModeFormatModal } from './components/BlackModeFormatModal';
 import { GroupTable } from './components/GroupTable';
 import { BilliardsGroupTable } from './components/BilliardsGroupTable';
 import { LiveThirdPlaceStandings } from './components/LiveThirdPlaceStandings';
+import { PesSingleGroupDecisionModal } from './components/PesSingleGroupDecisionModal';
+import { PesSingleGroupTieModal } from './components/PesSingleGroupTieModal';
+import { BilliardsSingleGroupTieModal } from './components/BilliardsSingleGroupTieModal';
+import { BilliardsSingleGroupFinalDecisionModal } from './components/BilliardsSingleGroupFinalDecisionModal';
 import { MatchCard } from './components/MatchCard';
 
 import {
@@ -167,6 +171,11 @@ export default function App() {
   const [isEditGroupsOpen, setIsEditGroupsOpen] = useState(false);
   const [isKnockoutRebuildModalOpen, setIsKnockoutRebuildModalOpen] = useState(false);
   const [isBlackModeModalOpen, setIsBlackModeModalOpen] = useState(false);
+  const [isPesSingleGroupTieModalOpen, setIsPesSingleGroupTieModalOpen] = useState(false);
+  const [isPesSingleGroupDecisionModalOpen, setIsPesSingleGroupDecisionModalOpen] = useState(false);
+  const [isBilliardsSingleGroupTieModalOpen, setIsBilliardsSingleGroupTieModalOpen] = useState(false);
+  const [isBilliardsSingleGroupFinalDecisionModalOpen, setIsBilliardsSingleGroupFinalDecisionModalOpen] = useState(false);
+  const [confirmedSecondPlaceId, setConfirmedSecondPlaceId] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
 
   const [resourcesPath, setResourcesPath] = useState<string>('');
@@ -400,6 +409,9 @@ export default function App() {
 
   const ruleDescription = useMemo(() => {
     if (state.groups.length === 0) return '';
+    if (state.groups.length === 1) {
+      return 'قانون لیگ: تمام بازیکنان در یک جدول رقابت می‌کنند؛ در پایان، نفرات اول و دوم به عنوان قهرمان و نایب‌قهرمان (یا فینالیست‌ها) معرفی می‌شوند.';
+    }
     if (state.groups.length === 3 && (state.advancementRule === 'bestThirds' || !state.advancementRule)) {
       return 'قانون صعود: مجموعاً ۸ بازیکن (۲ نفر اول هر گروه + ۲ تیم برتر رتبه سوم) به مرحله یک‌چهارم نهایی صعود می‌کنند.';
     }
@@ -868,6 +880,11 @@ export default function App() {
         );
       }
 
+      if (prev.groups.length === 1 && (match.id === 'ko-pes-tiebreaker' || match.id === 'ko-billiards-tiebreaker')) {
+        setConfirmedSecondPlaceId(null);
+        newMatches = newMatches.filter((m) => m.id !== 'ko-final');
+      }
+
       const finalMatch = newMatches.find(
         (m) =>
           m.stage === 'knockout' &&
@@ -1245,26 +1262,39 @@ export default function App() {
       let newStatus = prev.status;
 
       if (currentMatch && currentMatch.stage === 'group') {
-        const hasKnockout = updatedMatches.some((m) => m.stage === 'knockout');
-        if (hasKnockout) {
-          const newStandings: Record<string, GroupStanding[]> = {};
-          prev.groups.forEach((g) => {
-            newStandings[g.id] = calculateGroupStandings(
-              g.id,
-              g.playerIds,
-              updatedMatches,
-              playersMap
-            );
-          });
-          const knockoutOnly = updatedMatches.filter((m) => m.stage === 'knockout');
-          const groupOnly = updatedMatches.filter((m) => m.stage === 'group');
-          const syncedKnockout = syncKnockoutSeedsFromStandings(
-            knockoutOnly,
-            prev.groups,
-            newStandings,
-            prev.advancementRule || 'bestThirds'
+        if (prev.groups.length === 1) {
+          setConfirmedSecondPlaceId(null);
+          updatedMatches = updatedMatches.filter(
+            (m) => m.id !== 'ko-pes-tiebreaker' && m.id !== 'ko-billiards-tiebreaker' && m.id !== 'ko-final'
           );
-          updatedMatches = [...groupOnly, ...syncedKnockout];
+          if (newStatus === 'finished' || newStatus === 'knockout') {
+            newStatus = 'group';
+          }
+          newChampionId = null;
+          newRunnerUpId = null;
+          newThirdPlaceId = null;
+        } else {
+          const hasKnockout = updatedMatches.some((m) => m.stage === 'knockout');
+          if (hasKnockout) {
+            const newStandings: Record<string, GroupStanding[]> = {};
+            prev.groups.forEach((g) => {
+              newStandings[g.id] = calculateGroupStandings(
+                g.id,
+                g.playerIds,
+                updatedMatches,
+                playersMap
+              );
+            });
+            const knockoutOnly = updatedMatches.filter((m) => m.stage === 'knockout');
+            const groupOnly = updatedMatches.filter((m) => m.stage === 'group');
+            const syncedKnockout = syncKnockoutSeedsFromStandings(
+              knockoutOnly,
+              prev.groups,
+              newStandings,
+              prev.advancementRule || 'bestThirds'
+            );
+            updatedMatches = [...groupOnly, ...syncedKnockout];
+          }
         }
       }
 
@@ -1363,34 +1393,57 @@ export default function App() {
 
       let updatedMatches = prev.matches.map((m) => (m.id === matchId ? resetMatch : m));
 
-      if (matchToReset.stage === 'group') {
-        const hasKnockout = updatedMatches.some((m) => m.stage === 'knockout');
-        if (hasKnockout) {
-          const newStandings: Record<string, GroupStanding[]> = {};
-          prev.groups.forEach((g) => {
-            newStandings[g.id] = calculateGroupStandings(
-              g.id,
-              g.playerIds,
-              updatedMatches,
-              playersMap
-            );
-          });
-          const knockoutOnly = updatedMatches.filter((m) => m.stage === 'knockout');
-          const groupOnly = updatedMatches.filter((m) => m.stage === 'group');
-          const syncedKnockout = syncKnockoutSeedsFromStandings(
-            knockoutOnly,
-            prev.groups,
-            newStandings,
-            prev.advancementRule || 'bestThirds'
-          );
-          updatedMatches = [...groupOnly, ...syncedKnockout];
-        }
-      }
-
       let newChampionId = prev.championId;
       let newRunnerUpId = prev.runnerUpId;
       let newThirdPlaceId = prev.thirdPlaceId;
       let newStatus = prev.status;
+
+      if (matchToReset.stage === 'group') {
+        if (prev.groups.length === 1) {
+          setConfirmedSecondPlaceId(null);
+          updatedMatches = updatedMatches.filter(
+            (m) => m.id !== 'ko-pes-tiebreaker' && m.id !== 'ko-billiards-tiebreaker' && m.id !== 'ko-final'
+          );
+          if (newStatus === 'finished' || newStatus === 'knockout') {
+            newStatus = 'group';
+          }
+          newChampionId = null;
+          newRunnerUpId = null;
+          newThirdPlaceId = null;
+        } else {
+          const hasKnockout = updatedMatches.some((m) => m.stage === 'knockout');
+          if (hasKnockout) {
+            const newStandings: Record<string, GroupStanding[]> = {};
+            prev.groups.forEach((g) => {
+              newStandings[g.id] = calculateGroupStandings(
+                g.id,
+                g.playerIds,
+                updatedMatches,
+                playersMap
+              );
+            });
+            const knockoutOnly = updatedMatches.filter((m) => m.stage === 'knockout');
+            const groupOnly = updatedMatches.filter((m) => m.stage === 'group');
+            const syncedKnockout = syncKnockoutSeedsFromStandings(
+              knockoutOnly,
+              prev.groups,
+              newStandings,
+              prev.advancementRule || 'bestThirds'
+            );
+            updatedMatches = [...groupOnly, ...syncedKnockout];
+          }
+        }
+      }
+
+      if (prev.groups.length === 1 && (matchToReset.id === 'ko-pes-tiebreaker' || matchToReset.id === 'ko-billiards-tiebreaker')) {
+        setConfirmedSecondPlaceId(null);
+        updatedMatches = updatedMatches.filter((m) => m.id !== 'ko-final');
+        if (newStatus === 'finished') {
+          newStatus = 'knockout';
+        }
+        newChampionId = null;
+        newRunnerUpId = null;
+      }
 
       if (matchToReset.stage === 'knockout') {
         updatedMatches = syncDownstreamKnockoutMatches(
@@ -1504,7 +1557,91 @@ export default function App() {
     }, 350);
   };
 
+  const singleGroupStandings = useMemo(() => {
+    if (state.groups.length !== 1) return [];
+    return standingsMap[state.groups[0]?.id] || [];
+  }, [state.groups, standingsMap]);
+
+  const directMatchForBilliardsTie = useMemo(() => {
+    if (state.groups.length !== 1 || singleGroupStandings.length < 3) return undefined;
+    const p2 = singleGroupStandings[1].playerId;
+    const p3 = singleGroupStandings[2].playerId;
+    return state.matches.find(
+      (m) =>
+        m.stage === 'group' &&
+        ((m.homePlayerId === p2 && m.awayPlayerId === p3) ||
+         (m.homePlayerId === p3 && m.awayPlayerId === p2))
+    );
+  }, [state.groups, singleGroupStandings, state.matches]);
+
+  const directMatchForPesTie = useMemo(() => {
+    if (state.groups.length !== 1 || singleGroupStandings.length < 3) return undefined;
+    const p2 = singleGroupStandings[1].playerId;
+    const p3 = singleGroupStandings[2].playerId;
+    return state.matches.find(
+      (m) =>
+        m.stage === 'group' &&
+        ((m.homePlayerId === p2 && m.awayPlayerId === p3) ||
+         (m.homePlayerId === p3 && m.awayPlayerId === p2))
+    );
+  }, [state.groups, singleGroupStandings, state.matches]);
+
+  const billiardsFinalRank2Standing = useMemo(() => {
+    if (singleGroupStandings.length < 2) return singleGroupStandings[0];
+    const playoffMatch = state.matches.find((m) => m.id === 'ko-billiards-tiebreaker' && m.isFinished);
+    const targetId = playoffMatch?.winnerId || confirmedSecondPlaceId || singleGroupStandings[1].playerId;
+    const found = singleGroupStandings.find((s) => s.playerId === targetId);
+    return found || singleGroupStandings[1];
+  }, [singleGroupStandings, state.matches, confirmedSecondPlaceId]);
+
+  const pesFinalRank2Standing = useMemo(() => {
+    if (singleGroupStandings.length < 2) return singleGroupStandings[0];
+    const playoffMatch = state.matches.find((m) => m.id === 'ko-pes-tiebreaker' && m.isFinished);
+    const targetId = playoffMatch?.winnerId || confirmedSecondPlaceId || singleGroupStandings[1].playerId;
+    const found = singleGroupStandings.find((s) => s.playerId === targetId);
+    return found || singleGroupStandings[1];
+  }, [singleGroupStandings, state.matches, confirmedSecondPlaceId]);
+
   const handleAdvanceToKnockout = () => {
+    // 🔴 سناریوی اختصاصی «۱ گروه» (لیگ دوره‌ای)
+    if (state.groups.length === 1) {
+      if (singleGroupStandings.length < 2) return;
+
+      const rank2 = singleGroupStandings[1];
+      const rank3 = singleGroupStandings[2];
+
+      if (state.gameType === 'billiards') {
+        const hasTieForSecond = rank3 && rank2.points === rank3.points;
+        const existingPlayoff = state.matches.find((m) => m.id === 'ko-billiards-tiebreaker');
+
+        if (hasTieForSecond && (!existingPlayoff || !existingPlayoff.isFinished) && !confirmedSecondPlaceId) {
+          setIsBilliardsSingleGroupTieModalOpen(true);
+          return;
+        }
+
+        setIsBilliardsSingleGroupFinalDecisionModalOpen(true);
+        return;
+      } else {
+        // برای PES 2021
+        // 🔴 بررسی اولویت‌بندی: ابتدا شرط بررسی تساوی بین رتبه‌های صعودی (رتبه ۲ و ۳)
+        const hasTieForSecond = Boolean(
+          rank3 && (rank2.points === rank3.points)
+        );
+        const existingPlayoff = state.matches.find((m) => m.id === 'ko-pes-tiebreaker');
+
+        // اگر بین رتبه ۲ و ۳ تساوی وجود دارد و هنوز مشخص نشده است، ابتدا پاپ‌آپ تساوی باز می‌شود
+        if (hasTieForSecond && (!existingPlayoff || !existingPlayoff.isFinished) && !confirmedSecondPlaceId) {
+          setIsPesSingleGroupTieModalOpen(true);
+          return;
+        }
+
+        // فقط در صورت عدم وجود تساوی، یا پس از مشخص شدن برنده تساوی، پاپ‌آپ تعیین قهرمان باز می‌شود
+        setIsPesSingleGroupDecisionModalOpen(true);
+        return;
+      }
+    }
+
+    // 🔴 سناریوی استاندارد مسابقات چندگروهی (۲، ۳، ۴ یا ۸ گروه)
     const isThreeGroupsBestThirds = state.groups.length === 3 && state.advancementRule === 'bestThirds';
 
     const hasAnyOverflow = !isThreeGroupsBestThirds && state.groups.some((g) => (g.advanceCount ?? 2) > g.playerIds.length);
@@ -1533,6 +1670,248 @@ export default function App() {
     executeAdvanceToKnockout();
   };
 
+  // عملیات‌های تصمیم‌گیری حالت ۱ گروه - PES
+  const handlePesSelectHeadToHead = (winnerId: string, loserId: string) => {
+    setIsPesSingleGroupTieModalOpen(false);
+    setConfirmedSecondPlaceId(winnerId);
+    sound.playClick();
+    setTimeout(() => {
+      setIsPesSingleGroupDecisionModalOpen(true);
+    }, 200);
+  };
+
+  const handlePesSelectManualWinner = (winnerId: string) => {
+    setIsPesSingleGroupTieModalOpen(false);
+    setConfirmedSecondPlaceId(winnerId);
+    sound.playClick();
+    setTimeout(() => {
+      setIsPesSingleGroupDecisionModalOpen(true);
+    }, 200);
+  };
+
+  const handlePesSelectPlayoffMatch = () => {
+    setIsPesSingleGroupTieModalOpen(false);
+    if (singleGroupStandings.length < 3) return;
+    const rank2 = singleGroupStandings[1];
+    const rank3 = singleGroupStandings[2];
+
+    setLoadingMessage('در حال آماده‌سازی مسابقه پلی‌آف تساوی‌شکنی PES...');
+
+    setTimeout(() => {
+      const existingGroupMatches = state.matches.filter((m) => m.stage === 'group');
+      const playoffMatch: Match = {
+        id: 'ko-pes-tiebreaker',
+        stage: 'knockout',
+        knockoutRound: 'tiebreaker',
+        knockoutRoundLabel: 'دیدار پلی‌آف تعیین رتبه دوم و فینالیست لیگ PES',
+        roundLabel: 'مسابقه پلی‌آف تساوی‌شکنی',
+        homePlayerId: rank2.playerId,
+        awayPlayerId: rank3.playerId,
+        homeSeedLabel: 'رتبه ۲ جدول',
+        awaySeedLabel: 'رتبه ۳ جدول',
+        homeScore: null,
+        awayScore: null,
+        isFinished: false,
+      };
+
+      setState((prev) => ({
+        ...prev,
+        status: 'knockout',
+        matches: [...existingGroupMatches, playoffMatch],
+        updatedAt: Date.now(),
+      }));
+
+      setActiveTab('fixtures');
+      setLoadingMessage(null);
+    }, 350);
+  };
+
+  const handlePesSelectFinalMatch = () => {
+    setIsPesSingleGroupDecisionModalOpen(false);
+    if (singleGroupStandings.length < 2) return;
+    setLoadingMessage('در حال آماده‌سازی مسابقه فینال قهرمانی لیگ PES...');
+    setTimeout(() => {
+      const rank1 = singleGroupStandings[0];
+      const rank2 = pesFinalRank2Standing;
+      const existingMatches = state.matches.filter((m) => m.id !== 'ko-final');
+
+      const finalMatch: Match = {
+        id: 'ko-final',
+        stage: 'knockout',
+        knockoutRound: 'final',
+        knockoutRoundLabel: 'دیدار فینال قهرمانی لیگ PES',
+        roundLabel: 'فینال لیگ',
+        homePlayerId: rank1.playerId,
+        awayPlayerId: rank2.playerId,
+        homeSeedLabel: 'مقام اول لیگ',
+        awaySeedLabel: 'مقام دوم لیگ',
+        homeScore: null,
+        awayScore: null,
+        isFinished: false,
+      };
+
+      setState((prev) => ({
+        ...prev,
+        status: 'knockout',
+        matches: [...existingMatches, finalMatch],
+        updatedAt: Date.now(),
+      }));
+
+      setActiveTab('fixtures');
+      setLoadingMessage(null);
+    }, 350);
+  };
+
+  const handlePesSelectDirectByTable = () => {
+    setIsPesSingleGroupDecisionModalOpen(false);
+    if (singleGroupStandings.length < 2) return;
+    const rank1 = singleGroupStandings[0];
+    const rank2 = pesFinalRank2Standing;
+    const rank3 = singleGroupStandings.find(
+      (s) => s.playerId !== rank1.playerId && s.playerId !== rank2.playerId
+    );
+
+    sound.playFanfare();
+    setState((prev) => ({
+      ...prev,
+      status: 'finished',
+      championId: rank1.playerId,
+      runnerUpId: rank2.playerId,
+      thirdPlaceId: rank3 ? rank3.playerId : null,
+      updatedAt: Date.now(),
+    }));
+
+    setIsChampionModalOpen(true);
+  };
+
+  // عملیات‌های تصمیم‌گیری حالت ۱ گروه - بیلیارد
+  const handleBilliardsSelectHeadToHead = (winnerId: string, loserId: string) => {
+    setIsBilliardsSingleGroupTieModalOpen(false);
+    setConfirmedSecondPlaceId(winnerId);
+    sound.playClick();
+    setTimeout(() => {
+      setIsBilliardsSingleGroupFinalDecisionModalOpen(true);
+    }, 200);
+  };
+
+  const handleBilliardsSelectPlayoffMatch = (format: BilliardsFormat) => {
+    setIsBilliardsSingleGroupTieModalOpen(false);
+    if (singleGroupStandings.length < 3) return;
+    const rank2 = singleGroupStandings[1];
+    const rank3 = singleGroupStandings[2];
+
+    setLoadingMessage(`در حال ایجاد مسابقه پلی‌آف تساوی‌شکنی (${format === 'single' ? 'تک‌بازی' : format === 'bo3' ? 'Bo3' : 'Bo5'})...`);
+
+    setTimeout(() => {
+      const existingGroupMatches = state.matches.filter((m) => m.stage === 'group');
+      const playoffMatch: Match = {
+        id: 'ko-billiards-tiebreaker',
+        stage: 'knockout',
+        knockoutRound: 'tiebreaker',
+        knockoutRoundLabel: 'دیدار پلی‌آف تعیین نایب‌قهرمان و فینالیست دوم',
+        roundLabel: 'مسابقه پلی‌آف تساوی‌شکنی',
+        billiardsFormat: format,
+        games: format === 'bo3' || format === 'bo5'
+          ? Array.from({ length: format === 'bo3' ? 3 : 5 }, (_, i) => ({
+              gameNumber: i + 1,
+              homeScore: null,
+              awayScore: null,
+              winnerId: null,
+              isFinished: false,
+            }))
+          : undefined,
+        homePlayerId: rank2.playerId,
+        awayPlayerId: rank3.playerId,
+        homeSeedLabel: 'رتبه ۲ جدول',
+        awaySeedLabel: 'رتبه ۳ جدول',
+        homeScore: null,
+        awayScore: null,
+        isFinished: false,
+      };
+
+      setState((prev) => ({
+        ...prev,
+        status: 'knockout',
+        matches: [...existingGroupMatches, playoffMatch],
+        updatedAt: Date.now(),
+      }));
+
+      setActiveTab('fixtures');
+      setLoadingMessage(null);
+    }, 350);
+  };
+
+  const handleBilliardsSelectFinalMatch = () => {
+    setIsBilliardsSingleGroupFinalDecisionModalOpen(false);
+    if (singleGroupStandings.length < 2) return;
+    setLoadingMessage('در حال آماده‌سازی مسابقه فینال بیلیارد...');
+
+    setTimeout(() => {
+      const rank1 = singleGroupStandings[0];
+      const playoffMatch = state.matches.find((m) => m.id === 'ko-billiards-tiebreaker' && m.isFinished);
+      const rank2PlayerId = playoffMatch?.winnerId || confirmedSecondPlaceId || singleGroupStandings[1].playerId;
+
+      const existingMatches = state.matches.filter((m) => m.id !== 'ko-final');
+      const finalFormat = state.billiardsFormat || 'single';
+
+      const finalMatch: Match = {
+        id: 'ko-final',
+        stage: 'knockout',
+        knockoutRound: 'final',
+        knockoutRoundLabel: 'دیدار فینال قهرمانی لیگ بیلیارد',
+        roundLabel: 'فینال لیگ',
+        billiardsFormat: finalFormat,
+        games: finalFormat === 'bo3' || finalFormat === 'bo5'
+          ? Array.from({ length: finalFormat === 'bo3' ? 3 : 5 }, (_, i) => ({
+              gameNumber: i + 1,
+              homeScore: null,
+              awayScore: null,
+              winnerId: null,
+              isFinished: false,
+            }))
+          : undefined,
+        homePlayerId: rank1.playerId,
+        awayPlayerId: rank2PlayerId,
+        homeSeedLabel: 'مقام اول لیگ',
+        awaySeedLabel: 'مقام دوم لیگ',
+        homeScore: null,
+        awayScore: null,
+        isFinished: false,
+      };
+
+      setState((prev) => ({
+        ...prev,
+        status: 'knockout',
+        matches: [...existingMatches, finalMatch],
+        updatedAt: Date.now(),
+      }));
+
+      setActiveTab('fixtures');
+      setLoadingMessage(null);
+    }, 350);
+  };
+
+  const handleBilliardsSelectDirectByTable = () => {
+    setIsBilliardsSingleGroupFinalDecisionModalOpen(false);
+    if (singleGroupStandings.length < 2) return;
+    const rank1 = singleGroupStandings[0];
+    const playoffMatch = state.matches.find((m) => m.id === 'ko-billiards-tiebreaker' && m.isFinished);
+    const rank2PlayerId = playoffMatch?.winnerId || confirmedSecondPlaceId || singleGroupStandings[1].playerId;
+    const rank3PlayerId = playoffMatch?.loserId || (rank2PlayerId === singleGroupStandings[1].playerId ? singleGroupStandings[2]?.playerId : singleGroupStandings[1]?.playerId) || null;
+
+    sound.playFanfare();
+    setState((prev) => ({
+      ...prev,
+      status: 'finished',
+      championId: rank1.playerId,
+      runnerUpId: rank2PlayerId,
+      thirdPlaceId: rank3PlayerId,
+      updatedAt: Date.now(),
+    }));
+
+    setIsChampionModalOpen(true);
+  };
+
   const handleToggleSound = () => {
     setState((prev) => ({
       ...prev,
@@ -1542,6 +1921,7 @@ export default function App() {
 
   const handleConfirmReset = () => {
     clearTournamentStorage();
+    setConfirmedSecondPlaceId(null);
     setState({
       ...INITIAL_STATE,
       id: 'pes2021-cup-' + Date.now(),
@@ -1771,7 +2151,11 @@ export default function App() {
                             className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 rounded-xl shadow-md shadow-emerald-950/60 ring-1 ring-emerald-400/40 transition-all cursor-pointer"
                           >
                             <Sparkles className="w-4 h-4 text-emerald-300" />
-                            <span>ورود به مرحله حذفی بیلیارد</span>
+                            <span>
+                              {state.groups.length === 1
+                                ? 'تعیین تکلیف قهرمان لیگ بیلیارد 🏆'
+                                : 'ورود به مرحله حذفی بیلیارد'}
+                            </span>
                           </button>
                         )}
 
@@ -1871,7 +2255,11 @@ export default function App() {
                             className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-app-primary hover:bg-app-primary-hover rounded-xl shadow-md transition-all cursor-pointer"
                           >
                             <Trophy className="w-4 h-4" />
-                            <span>ورود به مرحله حذفی</span>
+                            <span>
+                              {state.groups.length === 1
+                                ? 'پایان مسابقات و تعیین قهرمان 🏆'
+                                : 'ورود به مرحله حذفی'}
+                            </span>
                           </button>
                         )}
 
@@ -2108,7 +2496,8 @@ export default function App() {
             )}
 
             {activeTab === 'fixtures' && (
-              state.tournamentFormat && state.tournamentFormat !== 'group_knockout' ? (
+              (state.tournamentFormat && state.tournamentFormat !== 'group_knockout') ||
+              (state.status === 'knockout' && state.groups.length === 1) ? (
                 <KnockoutFixturesView
                   state={state}
                   playersMap={playersMap}
@@ -2125,6 +2514,13 @@ export default function App() {
                   }}
                   onAdvanceKnockoutRound={handleAdvanceKnockoutRound}
                   onOpenCelebrationModal={() => setIsChampionModalOpen(true)}
+                  onOpenSingleGroupFinalDecision={() => {
+                    if (state.gameType === 'billiards') {
+                      setIsBilliardsSingleGroupFinalDecisionModalOpen(true);
+                    } else {
+                      setIsPesSingleGroupDecisionModalOpen(true);
+                    }
+                  }}
                 />
               ) : (
                 <GroupStageView
@@ -2157,6 +2553,13 @@ export default function App() {
                 }}
                 onAdvanceKnockoutRound={handleAdvanceKnockoutRound}
                 onOpenCelebrationModal={() => setIsChampionModalOpen(true)}
+                onOpenSingleGroupFinalDecision={() => {
+                  if (state.gameType === 'billiards') {
+                    setIsBilliardsSingleGroupFinalDecisionModalOpen(true);
+                  } else {
+                    setIsPesSingleGroupDecisionModalOpen(true);
+                  }
+                }}
               />
             )}
 
@@ -2309,6 +2712,62 @@ export default function App() {
         onSelectFormat={handleConfirmBlackModeFormat}
         roundNumber={(state.currentKnockoutRoundIndex || 1) + 1}
       />
+
+      {/* پاپ‌آپ مدیریت تساوی در لیگ ۱ گروه PES */}
+      {singleGroupStandings.length >= 3 && (
+        <PesSingleGroupTieModal
+          isOpen={isPesSingleGroupTieModalOpen}
+          onClose={() => setIsPesSingleGroupTieModalOpen(false)}
+          rank2={singleGroupStandings[1]}
+          rank3={singleGroupStandings[2]}
+          playersMap={playersMap}
+          directMatch={directMatchForPesTie}
+          onSelectHeadToHead={handlePesSelectHeadToHead}
+          onSelectPlayoffMatch={handlePesSelectPlayoffMatch}
+          onSelectManualWinner={handlePesSelectManualWinner}
+        />
+      )}
+
+      {/* پاپ‌آپ تصمیم‌گیری اتمام لیگ ۱ گروه PES */}
+      {singleGroupStandings.length >= 2 && (
+        <PesSingleGroupDecisionModal
+          isOpen={isPesSingleGroupDecisionModalOpen}
+          onClose={() => setIsPesSingleGroupDecisionModalOpen(false)}
+          rank1={singleGroupStandings[0]}
+          rank2={pesFinalRank2Standing}
+          playersMap={playersMap}
+          onSelectFinalMatch={handlePesSelectFinalMatch}
+          onSelectDirectByTable={handlePesSelectDirectByTable}
+        />
+      )}
+
+      {/* پاپ‌آپ مدیریت تساوی در لیگ ۱ گروه بیلیارد */}
+      {singleGroupStandings.length >= 3 && (
+        <BilliardsSingleGroupTieModal
+          isOpen={isBilliardsSingleGroupTieModalOpen}
+          onClose={() => setIsBilliardsSingleGroupTieModalOpen(false)}
+          rank2={singleGroupStandings[1]}
+          rank3={singleGroupStandings[2]}
+          playersMap={playersMap}
+          directMatch={directMatchForBilliardsTie}
+          onSelectHeadToHead={handleBilliardsSelectHeadToHead}
+          onSelectPlayoffMatch={handleBilliardsSelectPlayoffMatch}
+        />
+      )}
+
+      {/* پاپ‌آپ تصمیم‌گیری فینال لیگ ۱ گروه بیلیارد */}
+      {singleGroupStandings.length >= 2 && (
+        <BilliardsSingleGroupFinalDecisionModal
+          isOpen={isBilliardsSingleGroupFinalDecisionModalOpen}
+          onClose={() => setIsBilliardsSingleGroupFinalDecisionModalOpen(false)}
+          rank1={singleGroupStandings[0]}
+          rank2={billiardsFinalRank2Standing}
+          playersMap={playersMap}
+          tournamentBilliardsFormat={state.billiardsFormat}
+          onSelectFinalMatch={handleBilliardsSelectFinalMatch}
+          onSelectDirectByTable={handleBilliardsSelectDirectByTable}
+        />
+      )}
 
       {/* Glassmorphic Operation Loading Overlay */}
       {loadingMessage && (

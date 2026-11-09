@@ -30,10 +30,12 @@ export const GroupTable: React.FC<GroupTableProps> = ({
       {/* Header */}
       <div className="px-5 py-3.5 bg-slate-900/40 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-app-primary/20 border border-app-primary/40 flex items-center justify-center font-bold text-xs text-app-primary font-mono shadow-sm">
-            {group.code}
-          </div>
-          <h3 className="font-bold text-sm text-white">{group.name}</h3>
+          {groupCount !== 1 && (
+            <div className="w-7 h-7 rounded-lg bg-app-primary/20 border border-app-primary/40 flex items-center justify-center font-bold text-xs text-app-primary font-mono shadow-sm">
+              {group.code}
+            </div>
+          )}
+          <h3 className="font-bold text-sm text-white">{groupCount === 1 ? 'جدول رده‌بندی لیگ مسابقات' : group.name}</h3>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-emerald-400 font-medium bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1.5">
@@ -169,7 +171,9 @@ export const GroupTable: React.FC<GroupTableProps> = ({
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
             <span>
-              {groupCount === 4
+              {groupCount === 1
+                ? 'نفر اول و دوم به عنوان قهرمان و نایب‌قهرمان (یا صعودکننده به فینال) معرفی می‌شوند.'
+                : groupCount === 4
                 ? 'صعود به مرحله یک‌چهارم نهایی: ۲ نفر برتر هر گروه (مجموعاً ۸ بازیکن بدون احتساب تیم‌های سوم)'
                 : groupCount === 3
                 ? advancementRule === 'proportional'

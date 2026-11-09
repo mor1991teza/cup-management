@@ -35,6 +35,7 @@ interface KnockoutFixturesViewProps {
   onResetScore?: (matchId: string) => void;
   onAdvanceKnockoutRound?: () => void;
   onOpenCelebrationModal?: () => void;
+  onOpenSingleGroupFinalDecision?: () => void;
 }
 
 export const KnockoutFixturesView: React.FC<KnockoutFixturesViewProps> = ({
@@ -46,6 +47,7 @@ export const KnockoutFixturesView: React.FC<KnockoutFixturesViewProps> = ({
   onResetScore,
   onAdvanceKnockoutRound,
   onOpenCelebrationModal,
+  onOpenSingleGroupFinalDecision,
 }) => {
   const isDoubleElim = state.tournamentFormat === 'knockout_double';
   const activeRoundIndex = state.currentKnockoutRoundIndex || 1;
@@ -185,8 +187,45 @@ export const KnockoutFixturesView: React.FC<KnockoutFixturesViewProps> = ({
         </div>
       </div>
 
+      {/* پیام تکمیل مسابقه پلی‌آف در لیگ ۱ گروه */}
+      {state.groups?.length === 1 &&
+        knockoutMatches.some((m) => m.knockoutRound === 'tiebreaker' && m.isFinished) &&
+        !knockoutMatches.some((m) => m.knockoutRound === 'final') &&
+        !isTournamentFinished &&
+        onOpenSingleGroupFinalDecision && (
+          <div className="card-stadium p-4 sm:p-5 rounded-2xl border-2 border-emerald-500/80 bg-gradient-to-r from-emerald-950/90 via-[#0e1d15] to-emerald-950/90 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 animate-fade-in">
+            <div className="flex items-center gap-3 text-center md:text-right">
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 shrink-0">
+                <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+              </div>
+              <div>
+                <h4 className="text-sm sm:text-base font-extrabold text-white flex items-center gap-2 justify-center md:justify-start">
+                  <span>مسابقه پلی‌آف تساوی‌شکنی با موفقیت پایان یافت!</span>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/40">
+                    فینالیست دوم مشخص شد
+                  </span>
+                </h4>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  اکنون می‌توانید بین برگزاری مسابقه فینال رسمی یا اعلام مستقیم قهرمان از روی جدول تصمیم‌گیری کنید.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                sound.playClick();
+                onOpenSingleGroupFinalDecision();
+              }}
+              className="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 cursor-pointer shrink-0"
+            >
+              <Trophy className="w-4 h-4" />
+              <span>تصمیم‌گیری فینال لیگ 🏆</span>
+            </button>
+          </div>
+        )}
+
       {/* Prominent Redraw Button when active round finished */}
-      {isCurrentRoundFinished && !isTournamentFinished && (
+      {state.groups?.length !== 1 && isCurrentRoundFinished && !isTournamentFinished && (
         <div className="card-stadium p-4 sm:p-5 rounded-2xl border-2 border-emerald-500/80 bg-gradient-to-r from-emerald-950/90 via-[#0e1d15] to-emerald-950/90 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 animate-fade-in">
           <div className="flex items-center gap-3 text-center md:text-right">
             <div className="w-11 h-11 rounded-xl bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 shrink-0">
