@@ -137,6 +137,18 @@ export const BracketView: React.FC<BracketViewProps> = ({
     currentRoundMatches.length > 0 && currentRoundMatches.every((m) => m.isFinished && m.winnerId);
   const isTournamentFinished = state.status === 'finished' || Boolean(state.championId);
 
+  // Check if current round is Semi-final or Final
+  const isFinalRound = useMemo(() => {
+    return currentRoundMatches.some(
+      (m) => m.knockoutRound === 'final' || m.knockoutRound === 'thirdPlace'
+    );
+  }, [currentRoundMatches]);
+
+  const isSemiFinalRound = useMemo(() => {
+    if (currentRoundMatches.length !== 2) return false;
+    return !isFinalRound;
+  }, [currentRoundMatches, isFinalRound]);
+
   // Group matches by roundIndex
   const maxRound = Math.max(...knockoutMatches.map((m) => m.roundIndex || 1), 1);
   const roundsList: number[] = [];
@@ -360,7 +372,12 @@ export const BracketView: React.FC<BracketViewProps> = ({
         )}
 
       {/* Prominent Next Round Redraw Banner (when active round finished and tournament not finished) */}
-      {state.groups?.length !== 1 && isDirectKnockout && isCurrentRoundFinished && !isTournamentFinished && (
+      {state.groups?.length !== 1 &&
+        isDirectKnockout &&
+        isCurrentRoundFinished &&
+        !isTournamentFinished &&
+        !isSemiFinalRound &&
+        !isFinalRound && (
         <div className="card-stadium p-4 sm:p-5 rounded-2xl border-2 border-emerald-500/80 bg-gradient-to-r from-emerald-950/90 via-[#0e1d15] to-emerald-950/90 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 animate-fade-in">
           <div className="flex items-center gap-3.5 text-center md:text-right">
             <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 shrink-0">

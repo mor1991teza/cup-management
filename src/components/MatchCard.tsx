@@ -346,6 +346,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 ? (isBilliards ? homePlayer.name.replace(/\s*\([^)]*\)/g, '').trim() : homePlayer.name)
                 : match.homeSeedLabel || 'در انتظار تعیین'}
             </div>
+            {homePlayer?.uniqueId && (
+              <div className="text-[11px] text-white font-mono truncate mt-0.5">
+                {homePlayer.uniqueId}
+              </div>
+            )}
             {!isBilliards && homePlayer?.team && (
               <div className="text-[11px] text-slate-400 truncate mt-0.5">
                 {homePlayer.team}
@@ -382,6 +387,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 ? (isBilliards ? awayPlayer.name.replace(/\s*\([^)]*\)/g, '').trim() : awayPlayer.name)
                 : match.awaySeedLabel || 'در انتظار تعیین'}
             </div>
+            {awayPlayer?.uniqueId && (
+              <div className="text-[11px] text-white font-mono truncate mt-0.5">
+                {awayPlayer.uniqueId}
+              </div>
+            )}
             {!isBilliards && awayPlayer?.team && (
               <div className="text-[11px] text-slate-400 truncate mt-0.5">
                 {awayPlayer.team}
@@ -673,6 +683,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 ? (isBilliards ? homePlayer.name.replace(/\s*\([^)]*\)/g, '').trim() : homePlayer.name)
                 : match.homeSeedLabel || 'در انتظار تعیین'}
             </div>
+            {homePlayer?.uniqueId && (
+              <div className="text-[10px] text-white font-mono truncate">
+                {homePlayer.uniqueId}
+              </div>
+            )}
             {!isBilliards && homePlayer?.team && (
               <div className="text-[10px] text-slate-400 truncate">
                 {homePlayer.team}
@@ -799,6 +814,11 @@ export const MatchCard: React.FC<MatchCardProps> = ({
                 ? (isBilliards ? awayPlayer.name.replace(/\s*\([^)]*\)/g, '').trim() : awayPlayer.name)
                 : match.awaySeedLabel || 'در انتظار تعیین'}
             </div>
+            {awayPlayer?.uniqueId && (
+              <div className="text-[10px] text-white font-mono truncate">
+                {awayPlayer.uniqueId}
+              </div>
+            )}
             {!isBilliards && awayPlayer?.team && (
               <div className="text-[10px] text-slate-400 truncate">
                 {awayPlayer.team}

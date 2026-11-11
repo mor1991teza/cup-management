@@ -678,6 +678,11 @@ export const EditGroupsModal: React.FC<EditGroupsModalProps> = ({
                             >
                               <div className="truncate min-w-0 pr-1">
                                 <span className="font-bold">{playerName}</span>
+                                {player?.uniqueId && (
+                                  <span className="text-[10px] text-white font-mono block truncate">
+                                    {player.uniqueId}
+                                  </span>
+                                )}
                                 {!isBilliards && player?.team && (
                                   <span className="text-[10px] text-slate-400 block truncate">
                                     {player.team}

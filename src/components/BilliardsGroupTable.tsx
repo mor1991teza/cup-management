@@ -106,20 +106,27 @@ export const BilliardsGroupTable: React.FC<BilliardsGroupTableProps> = ({
 
                     {/* Player */}
                     <td className="py-2.5 px-2.5 sm:px-3">
-                      <div className="flex items-center gap-1.5">
-                        <div className="font-bold text-white flex items-center gap-1.5 truncate max-w-[100px] sm:max-w-[140px]">
-                          <span className="truncate">{cleanName}</span>
-                          {isQualified && (
-                            <span
-                              title={isBestThird ? 'سهمیه صعود به مرحله حذفی (تیم سوم برتر)' : 'سهمیه صعود به مرحله حذفی بیلیارد'}
-                              className={`w-1.5 h-1.5 rounded-full inline-block shrink-0 ${
-                                isBestThird
-                                  ? 'bg-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.9)] animate-pulse'
-                                  : 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]'
-                              }`}
-                            />
-                          )}
+                      <div className="flex flex-col justify-center">
+                        <div className="flex items-center gap-1.5">
+                          <div className="font-bold text-white flex items-center gap-1.5 truncate max-w-[100px] sm:max-w-[140px]">
+                            <span className="truncate">{cleanName}</span>
+                            {isQualified && (
+                              <span
+                                title={isBestThird ? 'سهمیه صعود به مرحله حذفی (تیم سوم برتر)' : 'سهمیه صعود به مرحله حذفی بیلیارد'}
+                                className={`w-1.5 h-1.5 rounded-full inline-block shrink-0 ${
+                                  isBestThird
+                                    ? 'bg-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.9)] animate-pulse'
+                                    : 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]'
+                                }`}
+                              />
+                            )}
+                          </div>
                         </div>
+                        {playersMap.get(st.playerId)?.uniqueId && (
+                          <div className="text-[10px] text-white font-mono truncate">
+                            {playersMap.get(st.playerId)?.uniqueId}
+                          </div>
+                        )}
                       </div>
                     </td>
 

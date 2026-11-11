@@ -105,20 +105,27 @@ export const GroupTable: React.FC<GroupTableProps> = ({
 
                   {/* Player & Team */}
                   <td className="py-2.5 px-2.5 sm:px-3">
-                    <div className="flex items-center gap-1.5">
-                      <div className="font-semibold text-white flex items-center gap-1.5 truncate max-w-[100px] sm:max-w-[140px]">
-                        <span className="truncate">{isBilliards ? st.playerName.replace(/\s*\([^)]*\)/g, '').trim() : st.playerName}</span>
-                        {isQualified && (
-                          <span
-                            title={isBilliards ? "سهمیه صعود به مرحله حذفی بیلیارد" : "سهمیه صعود به مرحله حذفی"}
-                            className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)] shrink-0"
-                          />
+                    <div className="flex flex-col justify-center">
+                      <div className="flex items-center gap-1.5">
+                        <div className="font-semibold text-white flex items-center gap-1.5 truncate max-w-[100px] sm:max-w-[140px]">
+                          <span className="truncate">{isBilliards ? st.playerName.replace(/\s*\([^)]*\)/g, '').trim() : st.playerName}</span>
+                          {isQualified && (
+                            <span
+                              title={isBilliards ? "سهمیه صعود به مرحله حذفی بیلیارد" : "سهمیه صعود به مرحله حذفی"}
+                              className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)] shrink-0"
+                            />
+                          )}
+                        </div>
+                        {!isBilliards && player?.team && (
+                          <span className="text-[11px] text-slate-400 truncate max-w-[110px]">
+                            ({player.team})
+                          </span>
                         )}
                       </div>
-                      {!isBilliards && player?.team && (
-                        <span className="text-[11px] text-slate-400 truncate max-w-[110px]">
-                          ({player.team})
-                        </span>
+                      {player?.uniqueId && (
+                        <div className="text-[10px] text-white font-mono truncate">
+                          {player.uniqueId}
+                        </div>
                       )}
                     </div>
                   </td>

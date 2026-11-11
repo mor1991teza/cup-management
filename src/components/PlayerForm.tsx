@@ -61,6 +61,8 @@ interface PlayerFormProps {
   onSetGameType?: (gameType: GameType) => void;
   billiardsFormat?: BilliardsFormat;
   onSetBilliardsFormat?: (format: BilliardsFormat) => void;
+  targetPlayerCount?: number;
+  onSetTargetPlayerCount?: (count: number) => void;
 }
 
 export const PlayerForm: React.FC<PlayerFormProps> = ({
@@ -87,6 +89,8 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
   onSetGameType,
   billiardsFormat = 'bo3',
   onSetBilliardsFormat,
+  targetPlayerCount = 32,
+  onSetTargetPlayerCount,
 }) => {
   const [selectedGameType, setSelectedGameType] = useState<GameType>(gameType);
   const [isGameTypeSelected, setIsGameTypeSelected] = useState<boolean>(() => {
@@ -94,6 +98,10 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
   });
   const [pesImgFailed, setPesImgFailed] = useState(false);
   const [billiardsImgFailed, setBilliardsImgFailed] = useState(false);
+
+  const maxCapacity = targetPlayerCount || 32;
+  const isCapacityReached = selectedGameType === 'pes' && players.length >= maxCapacity;
+  const remainingSlots = Math.max(0, maxCapacity - players.length);
 
   useEffect(() => {
     if (gameType) {
@@ -256,6 +264,13 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
 
   const handleSingleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isCapacityReached) {
+      sound.playClick();
+      setErrorMsg(`ظرفیت کاپ تکمیل شده است (سقف مجاز: ${maxCapacity} بازیکن). امکان افزودن بازیکن جدید وجود ندارد.`);
+      return;
+    }
+
     const rawTrimmed = singleName.trim();
 
     if (!rawTrimmed) {
@@ -277,17 +292,33 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
 
     if (selectedGameType === 'pes') {
       const rawUid = singleUniqueId.trim();
-      effectiveUniqueId = rawUid ? rawUid.toLowerCase() : normalizeName(trimmedName);
 
-      // بررسی تعداد سهم‌های قبلی با این شناسه یکتا
-      const matchingPlayers = players.filter(
-        (p) => (p.uniqueId || normalizeName(p.name)) === effectiveUniqueId
-      );
+      if (!rawUid) {
+        // شناسه یکتا وارد نشده است؛ اگر نام تکراری بود پیغام خطای نام تکراری داده می‌شود
+        const isDuplicate = players.some(
+          (p) => normalizeName(p.name) === normalizeName(trimmedName)
+        );
 
-      if (matchingPlayers.length > 0) {
-        // اگر شناسه یکتا تکراری باشد، به نام نمایشی پسوند عددی داده می‌شود (مثلاً "علی ۲")
-        const baseName = trimmedName.replace(/\s+\d+$/, '').trim();
-        finalName = `${baseName} ${matchingPlayers.length + 1}`;
+        if (isDuplicate) {
+          sound.playClick();
+          setErrorMsg('نام تکراری است.');
+          return;
+        }
+
+        effectiveUniqueId = undefined;
+      } else {
+        effectiveUniqueId = rawUid.toLowerCase();
+
+        // بررسی تعداد سهم‌های قبلی با این شناسه یکتا
+        const matchingPlayers = players.filter(
+          (p) => (p.uniqueId ? p.uniqueId.toLowerCase() === effectiveUniqueId : normalizeName(p.name) === effectiveUniqueId)
+        );
+
+        if (matchingPlayers.length > 0) {
+          // اگر شناسه یکتا تکراری باشد، به نام نمایشی پسوند عددی داده می‌شود (مثلاً "علی ۲")
+          const baseName = trimmedName.replace(/\s+\d+$/, '').trim();
+          finalName = `${baseName} ${matchingPlayers.length + 1}`;
+        }
       }
     } else {
       // در بیلیارد بررسی تکراری بودن نام به شکل ساده
@@ -296,7 +327,8 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
       );
 
       if (isDuplicate) {
-        setErrorMsg('این نام قبلاً در لیست ثبت شده است. لطفاً نام دیگری وارد کنید.');
+        sound.playClick();
+        setErrorMsg('نام تکراری است.');
         return;
       }
     }
@@ -316,6 +348,13 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
 
   const handleBulkSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isCapacityReached) {
+      sound.playClick();
+      setErrorMsg(`ظرفیت کاپ تکمیل شده است (سقف مجاز: ${maxCapacity} بازیکن). امکان افزودن بازیکن جدید وجود ندارد.`);
+      return;
+    }
+
     if (!bulkText.trim()) {
       setErrorMsg('لیست اسامی خالی است.');
       return;
@@ -357,15 +396,32 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
       return;
     }
 
-    onAddBulkPlayers(uniqueNames);
+    // بررسی سقف ظرفیت کاپ در ثبت دسته‌جمعی
+    let namesToAdd = uniqueNames;
+    let capacityHitNotice = false;
+
+    if (selectedGameType === 'pes' && players.length + uniqueNames.length > maxCapacity) {
+      const allowedCount = Math.max(0, maxCapacity - players.length);
+      if (allowedCount === 0) {
+        sound.playClick();
+        setErrorMsg(`ظرفیت کاپ تکمیل است (سقف مجاز: ${maxCapacity} نفر).`);
+        return;
+      }
+      namesToAdd = uniqueNames.slice(0, allowedCount);
+      capacityHitNotice = true;
+    }
+
+    onAddBulkPlayers(namesToAdd);
     sound.playClick();
     setBulkText('');
     setIsBulkOpen(false);
     
-    // اگر نام تکراری وجود داشت، به کاربر اطلاع بده
-    if (duplicateCount > 0) {
-      setErrorMsg(`${duplicateCount} نام تکراری نادیده گرفته شد. ${uniqueNames.length} بازیکن جدید اضافه شد.`);
-      // پیغام را بعد از ۵ ثانیه پاک کن
+    // اطلاع‌رسانی به کاربر
+    if (capacityHitNotice) {
+      setErrorMsg(`سقف ظرفیت کاپ ${maxCapacity} نفر است؛ تنها ${namesToAdd.length} بازیکن اول افزوده شدند و ظرفیت تکمیل شد.`);
+      setTimeout(() => setErrorMsg(null), 6000);
+    } else if (duplicateCount > 0) {
+      setErrorMsg(`${duplicateCount} نام تکراری نادیده گرفته شد. ${namesToAdd.length} بازیکن جدید اضافه شد.`);
       setTimeout(() => setErrorMsg(null), 5000);
     } else {
       setErrorMsg(null);
@@ -897,6 +953,85 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
           </div>
         )}
 
+        {/* PES Participant Capacity Limit Box */}
+        {selectedGameType === 'pes' && (
+          <div className="mt-4 p-4 bg-app-surface/90 border border-app-border rounded-2xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-app-border pb-3">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-app-primary" />
+                <span className="text-xs sm:text-sm font-bold text-app-text">
+                  تعیین سقف ظرفیت شرکت‌کنندگان کاپ PES:
+                </span>
+                <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-full bg-app-bg text-app-primary border border-app-border">
+                  {maxCapacity} نفر
+                </span>
+              </div>
+
+              {/* Live Status indicator */}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-app-text-muted">
+                  ثبت‌نام‌شده:
+                </span>
+                <span className="font-mono font-bold text-app-text">
+                  {players.length} از {maxCapacity}
+                </span>
+                {isCapacityReached ? (
+                  <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-rose-950/80 text-rose-300 border border-rose-800/80 animate-pulse">
+                    ⛔ ظرفیت تکمیل شد
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-950/60 text-emerald-300 border border-emerald-800/60">
+                    {remainingSlots} جایگاه خالی
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Capacity Presets and Custom Input */}
+            <div className="flex items-center gap-2 flex-wrap text-xs">
+              <span className="text-app-text-muted text-[11px] shrink-0">
+                انتخاب سریع ظرفیت:
+              </span>
+              {[8, 16, 24, 32, 48, 64].map((count) => (
+                <button
+                  key={count}
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    onSetTargetPlayerCount?.(count);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                    maxCapacity === count
+                      ? 'bg-app-primary text-white shadow-md ring-1 ring-app-primary/50'
+                      : 'bg-app-bg text-app-text-muted hover:text-app-text border border-app-border hover:border-app-border-hover'
+                  }`}
+                >
+                  {count} نفر
+                </button>
+              ))}
+
+              {/* Custom number input */}
+              <div className="flex items-center gap-1.5 mr-auto pt-1 sm:pt-0">
+                <span className="text-[11px] text-app-text-muted">سقف دلخواه:</span>
+                <input
+                  type="number"
+                  min="2"
+                  max="128"
+                  value={maxCapacity}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val) && val >= 2 && val <= 128) {
+                      onSetTargetPlayerCount?.(val);
+                    }
+                  }}
+                  className="w-16 h-8 text-center bg-app-bg border border-app-border focus:border-app-primary rounded-lg text-xs font-mono font-bold text-app-text outline-none"
+                />
+                <span className="text-[11px] text-app-text-muted">نفر</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Inputs Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
           {/* Left Column: Player Entry */}
@@ -927,6 +1062,16 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
               </button>
             </div>
 
+            {/* Alert when capacity is reached */}
+            {isCapacityReached && (
+              <div className="p-3 bg-rose-950/60 border border-rose-800/80 rounded-xl text-xs text-rose-200 flex items-center gap-2 animate-pulse">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>
+                  ظرفیت کاپ تکمیل شده است ({maxCapacity} از {maxCapacity} نفر). برای افزودن بازیکن، ابتدا سقف ظرفیت را از کادر بالا افزایش دهید یا بازیکنی را حذف نمایید.
+                </span>
+              </div>
+            )}
+
             {!isBulkOpen ? (
               <form onSubmit={handleSingleSubmit} className="space-y-3">
                 {selectedGameType === 'billiards' ? (
@@ -949,10 +1094,11 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                         <label className="block text-xs text-app-text mb-1">نام بازیکن / گیمر *</label>
                         <input
                           type="text"
+                          disabled={isCapacityReached}
                           value={singleName}
                           onChange={(e) => setSingleName(e.target.value)}
-                          placeholder="مثال: علیرضا"
-                          className="w-full bg-app-bg border border-app-border focus:border-app-primary focus:ring-1 focus:ring-app-primary rounded-lg px-3 py-2 text-sm text-app-text placeholder-app-text-muted/60 outline-none transition-all"
+                          placeholder={isCapacityReached ? `ظرفیت کاپ (${maxCapacity} نفر) تکمیل است` : 'مثال: علیرضا'}
+                          className="w-full bg-app-bg border border-app-border focus:border-app-primary focus:ring-1 focus:ring-app-primary rounded-lg px-3 py-2 text-sm text-app-text placeholder-app-text-muted/60 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                       </div>
                       <div>
@@ -961,10 +1107,11 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                         </label>
                         <input
                           type="text"
+                          disabled={isCapacityReached}
                           value={singleUniqueId}
                           onChange={(e) => setSingleUniqueId(e.target.value)}
                           placeholder="مثال: 09121234567"
-                          className="w-full bg-app-bg border border-app-border focus:border-app-primary focus:ring-1 focus:ring-app-primary rounded-lg px-3 py-2 text-sm text-app-text placeholder-app-text-muted/60 outline-none transition-all"
+                          className="w-full bg-app-bg border border-app-border focus:border-app-primary focus:ring-1 focus:ring-app-primary rounded-lg px-3 py-2 text-sm text-app-text placeholder-app-text-muted/60 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                       </div>
                       <div>
@@ -973,10 +1120,11 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                         </label>
                         <input
                           type="text"
+                          disabled={isCapacityReached}
                           value={singleTeam}
                           onChange={(e) => setSingleTeam(e.target.value)}
                           placeholder="مثال: بارسلونا"
-                          className="w-full bg-app-bg border border-app-border focus:border-app-primary focus:ring-1 focus:ring-app-primary rounded-lg px-3 py-2 text-sm text-app-text placeholder-app-text-muted/60 outline-none transition-all"
+                          className="w-full bg-app-bg border border-app-border focus:border-app-primary focus:ring-1 focus:ring-app-primary rounded-lg px-3 py-2 text-sm text-app-text placeholder-app-text-muted/60 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -989,8 +1137,9 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                         <button
                           key={t}
                           type="button"
+                          disabled={isCapacityReached}
                           onClick={() => setSingleTeam(t)}
-                          className="text-[11px] text-app-text-muted hover:text-app-text hover:bg-app-surface px-2 py-0.5 rounded border border-app-border transition-colors cursor-pointer"
+                          className="text-[11px] text-app-text-muted hover:text-app-text hover:bg-app-surface px-2 py-0.5 rounded border border-app-border transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
                         >
                           {t}
                         </button>
@@ -1001,11 +1150,15 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
 
                 <button
                   type="submit"
-                  className={`flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
-                    selectedGameType === 'billiards'
-                      ? 'bg-emerald-950/90 hover:bg-emerald-900 border-emerald-700 text-emerald-200 shadow-sm'
-                      : 'bg-app-surface hover:bg-app-surface-hover text-app-primary border-app-border'
+                  disabled={isCapacityReached}
+                  className={`flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2 text-xs font-bold rounded-lg border transition-all ${
+                    isCapacityReached
+                      ? 'bg-slate-800/60 text-slate-500 border-slate-700/50 cursor-not-allowed opacity-50'
+                      : selectedGameType === 'billiards'
+                      ? 'bg-emerald-950/90 hover:bg-emerald-900 border-emerald-700 text-emerald-200 shadow-sm cursor-pointer'
+                      : 'bg-app-surface hover:bg-app-surface-hover text-app-primary border-app-border cursor-pointer'
                   }`}
+                  title={isCapacityReached ? `ظرفیت کاپ تکمیل شده است (${maxCapacity} نفر)` : undefined}
                 >
                   <UserPlus className="w-4 h-4" />
                   <span>افزودن به لیست شرکت‌کنندگان</span>
@@ -1019,14 +1172,17 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                   </label>
                   <textarea
                     rows={4}
+                    disabled={isCapacityReached}
                     value={bulkText}
                     onChange={(e) => setBulkText(e.target.value)}
                     placeholder={
-                      selectedGameType === 'billiards'
+                      isCapacityReached
+                        ? `ظرفیت کاپ (${maxCapacity} نفر) تکمیل است.`
+                        : selectedGameType === 'billiards'
                         ? 'مثال:\nآرش\nرضا\nنیما\nامیر\nسهراب\nفرهاد'
                         : 'مثال:\nعلیرضا (بارسلونا)\nرضا (یوونتوس)\nمهدی (بایرن)\nامیر (پی‌اس‌جی)'
                     }
-                    className={`w-full border rounded-lg p-3 text-sm outline-none transition-all resize-y ${
+                    className={`w-full border rounded-lg p-3 text-sm outline-none transition-all resize-y disabled:opacity-50 disabled:cursor-not-allowed ${
                       selectedGameType === 'billiards'
                         ? 'bg-[#05180f] border-emerald-800/80 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 text-white placeholder-emerald-700/60'
                         : 'bg-app-bg border-app-border focus:border-app-primary focus:ring-1 focus:ring-app-primary text-app-text placeholder-app-text-muted/60'
@@ -1040,11 +1196,15 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                 </div>
                 <button
                   type="submit"
-                  className={`flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
-                    selectedGameType === 'billiards'
-                      ? 'bg-emerald-950/90 hover:bg-emerald-900 border-emerald-700 text-emerald-200 shadow-sm'
-                      : 'bg-app-surface hover:bg-app-surface-hover text-app-primary border-app-border'
+                  disabled={isCapacityReached}
+                  className={`flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2 text-xs font-bold rounded-lg border transition-all ${
+                    isCapacityReached
+                      ? 'bg-slate-800/60 text-slate-500 border-slate-700/50 cursor-not-allowed opacity-50'
+                      : selectedGameType === 'billiards'
+                      ? 'bg-emerald-950/90 hover:bg-emerald-900 border-emerald-700 text-emerald-200 shadow-sm cursor-pointer'
+                      : 'bg-app-surface hover:bg-app-surface-hover text-app-primary border-app-border cursor-pointer'
                   }`}
+                  title={isCapacityReached ? `ظرفیت کاپ تکمیل شده است (${maxCapacity} نفر)` : undefined}
                 >
                   <FileText className="w-4 h-4" />
                   <span>ثبت اسامی به صورت دسته‌جمعی</span>
@@ -2158,12 +2318,12 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                 type="button"
                 onClick={() => {
                   sound.playClick();
-                  onLoadPresets(PRESET_PLAYERS.slice(0, 16));
+                  onLoadPresets(PRESET_PLAYERS.slice(0, Math.min(16, maxCapacity)));
                 }}
                 className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 bg-amber-950/40 hover:bg-amber-950/70 border border-amber-800/60 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>بارگذاری نمونه بازیکنان (۱۶ بازیکن)</span>
+                <span>بارگذاری نمونه بازیکنان ({Math.min(16, maxCapacity)} بازیکن)</span>
               </button>
             )}
 
@@ -2234,6 +2394,11 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                           </span>
                         )}
                       </div>
+                      {p.uniqueId && (
+                        <div className="text-[10px] text-white font-mono truncate">
+                          {p.uniqueId}
+                        </div>
+                      )}
                       {displayTeam && (
                         <div className="text-[10px] text-slate-400 truncate">
                           {displayTeam}

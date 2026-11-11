@@ -30,6 +30,7 @@ import {
   syncDownstreamKnockoutMatches,
   isValidKnockoutCount,
   getKnockoutCountErrorMessage,
+  autoAdvanceSemiFinalMatches,
 } from './utils/tournament';
 import {
   clearTournamentStorage,
@@ -87,6 +88,7 @@ const INITIAL_STATE: TournamentState = {
   billiardsFormat: 'bo3',
   tournamentFormat: 'group_knockout',
   numberOfGroups: 2,
+  targetPlayerCount: 32,
   status: 'setup',
   players: [],
   groups: [],
@@ -276,6 +278,41 @@ export default function App() {
   useEffect(() => {
     sound.setEnabled(state.soundEnabled);
   }, [state.soundEnabled]);
+
+  // انتقال خودکار نیمه‌نهایی به فینال و رده‌بندی به محض تکمیل هر دو بازی
+  useEffect(() => {
+    if (state.status === 'finished') return;
+    const currentRound = state.currentKnockoutRoundIndex || 1;
+    const isDouble = state.tournamentFormat === 'knockout_double';
+    const effectiveFormat = state.blackModeSubsequentFormat;
+    const forceBo3 = state.tournamentFormat === 'knockout_black' ? effectiveFormat === 'bo3' : undefined;
+
+    const result = autoAdvanceSemiFinalMatches(
+      state.matches,
+      currentRound,
+      isDouble,
+      forceBo3
+    );
+
+    if (
+      result.advanced &&
+      (result.nextRoundIndex !== currentRound ||
+        result.updatedMatches.length !== state.matches.length)
+    ) {
+      setState((prev) => ({
+        ...prev,
+        matches: result.updatedMatches,
+        currentKnockoutRoundIndex: result.nextRoundIndex,
+        updatedAt: Date.now(),
+      }));
+    }
+  }, [
+    state.matches,
+    state.currentKnockoutRoundIndex,
+    state.status,
+    state.tournamentFormat,
+    state.blackModeSubsequentFormat,
+  ]);
 
   const playersMap = useMemo(() => {
     const map = new Map<string, Player>();
@@ -474,6 +511,14 @@ export default function App() {
     }));
   };
 
+  const handleSetTargetPlayerCount = (count?: number) => {
+    setState((prev) => ({
+      ...prev,
+      targetPlayerCount: count,
+      updatedAt: Date.now(),
+    }));
+  };
+
   const handleLoadPresets = (presetList: Array<{ name: string; team?: string; color?: string }>) => {
     const newPlayers: Player[] = presetList.map((p) => ({
       id: `p-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -615,6 +660,23 @@ export default function App() {
   };
 
   const handleAdvanceKnockoutRound = () => {
+    // در مرحله نیمه‌نهایی، دکمه‌های قرعه‌کشی و مرحله بعد غیرفعال هستند و انتقال به فینال و رده‌بندی خودکار است
+    const currentRound = state.currentKnockoutRoundIndex || 1;
+    const currentRoundMatches = state.matches.filter(
+      (m) =>
+        m.stage === 'knockout' &&
+        (m.roundIndex || 1) === currentRound &&
+        (!m.bracketType || m.bracketType === 'single' || m.bracketType === 'winners')
+    );
+    const isSemi =
+      currentRoundMatches.length === 2 &&
+      currentRoundMatches.every(
+        (m) => m.knockoutRound !== 'final' && m.knockoutRound !== 'thirdPlace'
+      );
+    if (isSemi) {
+      return;
+    }
+
     // در حالت بلک، اگر مرحله اول به پایان رسیده باشد و هنوز فرمت مراحل بعدی تعیین نشده، مودال باز شود
     if (
       state.tournamentFormat === 'knockout_black' &&
@@ -713,6 +775,7 @@ export default function App() {
 
       let newMatches = prev.matches.map((m) => (m.id === matchId ? updatedMatch : m));
 
+      let newRoundIndex = prev.currentKnockoutRoundIndex || 1;
       if (updatedMatch.stage === 'knockout') {
         newMatches = syncDownstreamKnockoutMatches(
           newMatches,
@@ -726,6 +789,18 @@ export default function App() {
           updatedMatch.winnerId || null,
           updatedMatch.loserId || null
         );
+
+        // 🔴 انتقال خودکار نیمه‌نهایی به فینال و رده‌بندی
+        const semiAdvance = autoAdvanceSemiFinalMatches(
+          newMatches,
+          newRoundIndex,
+          prev.tournamentFormat === 'knockout_double',
+          prev.tournamentFormat === 'knockout_black' ? prev.blackModeSubsequentFormat === 'bo3' : undefined
+        );
+        if (semiAdvance.advanced) {
+          newMatches = semiAdvance.updatedMatches;
+          newRoundIndex = semiAdvance.nextRoundIndex;
+        }
       }
 
       const finalMatch = newMatches.find(
@@ -768,6 +843,7 @@ export default function App() {
       return {
         ...prev,
         matches: newMatches,
+        currentKnockoutRoundIndex: newRoundIndex,
         championId: newChampionId,
         runnerUpId: newRunnerUpId,
         thirdPlaceId: newThirdPlaceId,
@@ -790,6 +866,7 @@ export default function App() {
       const updatedMatch = quickRecordBo3GameWin(match, winningSide);
       let newMatches = prev.matches.map((m) => (m.id === matchId ? updatedMatch : m));
 
+      let newRoundIndex = prev.currentKnockoutRoundIndex || 1;
       if (updatedMatch.stage === 'knockout') {
         newMatches = syncDownstreamKnockoutMatches(
           newMatches,
@@ -803,6 +880,18 @@ export default function App() {
           updatedMatch.winnerId || null,
           updatedMatch.loserId || null
         );
+
+        // 🔴 انتقال خودکار نیمه‌نهایی به فینال و رده‌بندی
+        const semiAdvance = autoAdvanceSemiFinalMatches(
+          newMatches,
+          newRoundIndex,
+          prev.tournamentFormat === 'knockout_double',
+          prev.tournamentFormat === 'knockout_black' ? prev.blackModeSubsequentFormat === 'bo3' : undefined
+        );
+        if (semiAdvance.advanced) {
+          newMatches = semiAdvance.updatedMatches;
+          newRoundIndex = semiAdvance.nextRoundIndex;
+        }
       }
 
       const finalMatch = newMatches.find(
@@ -844,6 +933,7 @@ export default function App() {
       return {
         ...prev,
         matches: newMatches,
+        currentKnockoutRoundIndex: newRoundIndex,
         championId: newChampionId,
         runnerUpId: newRunnerUpId,
         thirdPlaceId: newThirdPlaceId,
@@ -1298,6 +1388,7 @@ export default function App() {
         }
       }
 
+      let newRoundIndex = prev.currentKnockoutRoundIndex || 1;
       if (currentMatch && currentMatch.stage === 'knockout') {
         const winner = currentMatch.winnerId || null;
         const loser =
@@ -1318,6 +1409,18 @@ export default function App() {
           winner,
           loser
         );
+
+        // 🔴 انتقال خودکار نیمه‌نهایی به فینال و رده‌بندی
+        const semiAdvance = autoAdvanceSemiFinalMatches(
+          updatedMatches,
+          newRoundIndex,
+          prev.tournamentFormat === 'knockout_double',
+          prev.tournamentFormat === 'knockout_black' ? prev.blackModeSubsequentFormat === 'bo3' : undefined
+        );
+        if (semiAdvance.advanced) {
+          updatedMatches = semiAdvance.updatedMatches;
+          newRoundIndex = semiAdvance.nextRoundIndex;
+        }
 
         const finalMatch = updatedMatches.find(
           (m) =>
@@ -1361,6 +1464,7 @@ export default function App() {
       return {
         ...prev,
         matches: updatedMatches,
+        currentKnockoutRoundIndex: newRoundIndex,
         championId: newChampionId,
         runnerUpId: newRunnerUpId,
         thirdPlaceId: newThirdPlaceId,
@@ -2148,6 +2252,8 @@ export default function App() {
             onSetGameType={handleSetGameType}
             billiardsFormat={state.billiardsFormat || 'bo3'}
             onSetBilliardsFormat={handleSetBilliardsFormat}
+            targetPlayerCount={state.targetPlayerCount ?? 32}
+            onSetTargetPlayerCount={handleSetTargetPlayerCount}
           />
         ) : (
           <>

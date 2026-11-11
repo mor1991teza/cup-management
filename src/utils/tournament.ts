@@ -584,6 +584,7 @@ export function generateKnockoutStage(
       knockoutMatches.push({
         id: matchId,
         stage: 'knockout',
+        roundIndex: rIdx + 1,
         knockoutRound: roundInfo.type,
         knockoutRoundLabel: roundInfo.label,
         knockoutMatchIndex: matchNumber,
@@ -607,6 +608,7 @@ export function generateKnockoutStage(
     knockoutMatches.push({
       id: 'ko-third',
       stage: 'knockout',
+      roundIndex: activeRounds.length,
       knockoutRound: 'thirdPlace',
       knockoutRoundLabel: KNOCKOUT_ROUND_LABELS.thirdPlace,
       knockoutMatchIndex: 1,
@@ -1256,6 +1258,166 @@ export function generateNextKnockoutRoundMatches(
     championId: null,
     runnerUpId: null,
     thirdPlaceId: null,
+  };
+}
+
+/**
+ * Automatically creates or synchronizes Final and Third-Place matches
+ * as soon as both Semi-Final matches have winners.
+ * This completely eliminates the need for manual redraw/advance buttons at the semi-final stage.
+ */
+export function autoAdvanceSemiFinalMatches(
+  currentMatches: Match[],
+  currentRoundIndex: number,
+  isDoubleElim: boolean = false,
+  forceBo3?: boolean
+): {
+  updatedMatches: Match[];
+  nextRoundIndex: number;
+  advanced: boolean;
+} {
+  const knockoutMatches = currentMatches.filter((m) => m.stage === 'knockout');
+  const currentRoundMatches = knockoutMatches.filter(
+    (m) =>
+      (m.roundIndex || 1) === currentRoundIndex &&
+      (!m.bracketType || m.bracketType === 'single' || m.bracketType === 'winners')
+  );
+
+  // A round is a semi-final round if:
+  // 1. It has exactly 2 matches
+  // 2. Neither match is the final or third-place match
+  const isSemiRound =
+    currentRoundMatches.length === 2 &&
+    currentRoundMatches.every(
+      (m) => m.knockoutRound !== 'final' && m.knockoutRound !== 'thirdPlace'
+    );
+
+  if (!isSemiRound) {
+    return { updatedMatches: currentMatches, nextRoundIndex: currentRoundIndex, advanced: false };
+  }
+
+  // Check if both semi-final matches are finished and have winners
+  const semi1 = currentRoundMatches[0];
+  const semi2 = currentRoundMatches[1];
+  const bothFinished =
+    Boolean(semi1?.isFinished && semi1?.winnerId) &&
+    Boolean(semi2?.isFinished && semi2?.winnerId);
+
+  if (!bothFinished) {
+    return { updatedMatches: currentMatches, nextRoundIndex: currentRoundIndex, advanced: false };
+  }
+
+  const winner1 = semi1.winnerId!;
+  const loser1 =
+    semi1.loserId ||
+    (semi1.homePlayerId === winner1 ? semi1.awayPlayerId : semi1.homePlayerId)!;
+
+  const winner2 = semi2.winnerId!;
+  const loser2 =
+    semi2.loserId ||
+    (semi2.homePlayerId === winner2 ? semi2.awayPlayerId : semi2.homePlayerId)!;
+
+  const nextRoundIndex = currentRoundIndex + 1;
+  const matchIsBo3 = forceBo3 !== undefined ? forceBo3 : isDoubleElim;
+
+  let updatedMatches = [...currentMatches];
+
+  // 1. Check for existing Final match
+  const existingFinalIndex = updatedMatches.findIndex(
+    (m) =>
+      m.stage === 'knockout' &&
+      (m.knockoutRound === 'final' ||
+        m.id === `ko-r${nextRoundIndex}-final` ||
+        m.id === 'ko-final')
+  );
+
+  if (existingFinalIndex >= 0) {
+    const existing = updatedMatches[existingFinalIndex];
+    updatedMatches[existingFinalIndex] = {
+      ...existing,
+      roundIndex: nextRoundIndex,
+      homePlayerId: winner1,
+      awayPlayerId: winner2,
+      homeSourceMatchId: semi1.id,
+      awaySourceMatchId: semi2.id,
+      knockoutRound: 'final',
+      roundLabel: existing.roundLabel || 'فینال قهرمانی',
+      knockoutRoundLabel: 'فینال و رده‌بندی',
+    };
+  } else {
+    updatedMatches.push({
+      id: `ko-r${nextRoundIndex}-final`,
+      stage: 'knockout',
+      roundIndex: nextRoundIndex,
+      roundLabel: 'فینال قهرمانی',
+      knockoutRound: 'final',
+      knockoutRoundLabel: 'فینال و رده‌بندی',
+      knockoutMatchIndex: 1,
+      homePlayerId: winner1,
+      awayPlayerId: winner2,
+      homeSourceMatchId: semi1.id,
+      awaySourceMatchId: semi2.id,
+      homeScore: matchIsBo3 ? 0 : null,
+      awayScore: matchIsBo3 ? 0 : null,
+      homeGamesWon: matchIsBo3 ? 0 : undefined,
+      awayGamesWon: matchIsBo3 ? 0 : undefined,
+      isFinished: false,
+      isBo3: matchIsBo3,
+      games: matchIsBo3 ? [] : undefined,
+      bracketType: isDoubleElim ? 'grand_final' : 'single',
+    });
+  }
+
+  // 2. Check for existing Third-Place match
+  const existingThirdIndex = updatedMatches.findIndex(
+    (m) =>
+      m.stage === 'knockout' &&
+      (m.knockoutRound === 'thirdPlace' ||
+        m.id === `ko-r${nextRoundIndex}-third` ||
+        m.id === 'ko-third')
+  );
+
+  if (existingThirdIndex >= 0) {
+    const existing = updatedMatches[existingThirdIndex];
+    updatedMatches[existingThirdIndex] = {
+      ...existing,
+      roundIndex: nextRoundIndex,
+      homePlayerId: loser1,
+      awayPlayerId: loser2,
+      homeLoserSourceMatchId: semi1.id,
+      awayLoserSourceMatchId: semi2.id,
+      knockoutRound: 'thirdPlace',
+      roundLabel: existing.roundLabel || 'رده‌بندی (مقام سوم)',
+      knockoutRoundLabel: 'فینال و رده‌بندی',
+    };
+  } else {
+    updatedMatches.push({
+      id: `ko-r${nextRoundIndex}-third`,
+      stage: 'knockout',
+      roundIndex: nextRoundIndex,
+      roundLabel: 'رده‌بندی (مقام سوم)',
+      knockoutRound: 'thirdPlace',
+      knockoutRoundLabel: 'فینال و رده‌بندی',
+      knockoutMatchIndex: 2,
+      homePlayerId: loser1,
+      awayPlayerId: loser2,
+      homeLoserSourceMatchId: semi1.id,
+      awayLoserSourceMatchId: semi2.id,
+      homeScore: matchIsBo3 ? 0 : null,
+      awayScore: matchIsBo3 ? 0 : null,
+      homeGamesWon: matchIsBo3 ? 0 : undefined,
+      awayGamesWon: matchIsBo3 ? 0 : undefined,
+      isFinished: false,
+      isBo3: matchIsBo3,
+      games: matchIsBo3 ? [] : undefined,
+      bracketType: 'single',
+    });
+  }
+
+  return {
+    updatedMatches,
+    nextRoundIndex,
+    advanced: true,
   };
 }
 
