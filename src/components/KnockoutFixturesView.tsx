@@ -36,6 +36,7 @@ interface KnockoutFixturesViewProps {
   onAdvanceKnockoutRound?: () => void;
   onOpenCelebrationModal?: () => void;
   onOpenSingleGroupFinalDecision?: () => void;
+  onSelectPlayer?: (playerId: string) => void;
 }
 
 export const KnockoutFixturesView: React.FC<KnockoutFixturesViewProps> = ({
@@ -48,6 +49,7 @@ export const KnockoutFixturesView: React.FC<KnockoutFixturesViewProps> = ({
   onAdvanceKnockoutRound,
   onOpenCelebrationModal,
   onOpenSingleGroupFinalDecision,
+  onSelectPlayer,
 }) => {
   const isDoubleElim = state.tournamentFormat === 'knockout_double';
   const activeRoundIndex = state.currentKnockoutRoundIndex || 1;
@@ -468,6 +470,7 @@ export const KnockoutFixturesView: React.FC<KnockoutFixturesViewProps> = ({
               isKnockout={true}
               gameType={state.gameType || 'pes'}
               billiardsFormat={state.billiardsFormat}
+              onSelectPlayer={onSelectPlayer}
             />
           ))}
         </div>

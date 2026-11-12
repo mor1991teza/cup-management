@@ -8,6 +8,7 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
 import { fileURLToPath } from 'url';
 
 // بارگذاری متغیرهای محیطی با امکان رونویسی
@@ -214,6 +215,69 @@ function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
 // ==========================================
 // روت‌های API
 // ==========================================
+
+/**
+ * بررسی و اعتبارسنجی لایسنس
+ * POST /api/verify-license
+ */
+app.post('/api/verify-license', (req: Request, res: Response) => {
+  const { licenseKey } = req.body;
+  if (!licenseKey || typeof licenseKey !== 'string') {
+    res.status(400).json({ valid: false, error: 'کد لایسنس نامعتبر است.' });
+    return;
+  }
+
+  try {
+    const licensesFilePath = path.join(__dirname, 'licenses.json');
+    if (!fs.existsSync(licensesFilePath)) {
+      res.status(500).json({ valid: false, error: 'فایل لایسنس‌ها در سرور یافت نشد.' });
+      return;
+    }
+
+    const fileContent = fs.readFileSync(licensesFilePath, 'utf-8');
+    const licenses = JSON.parse(fileContent);
+
+    if (!Array.isArray(licenses)) {
+      res.status(500).json({ valid: false, error: 'ساختار فایل لایسنس‌ها نامعتبر است.' });
+      return;
+    }
+
+    const found = licenses.find((l: any) => l.key.trim() === licenseKey.trim());
+    if (!found) {
+      res.status(401).json({ valid: false, error: 'کد لایسنس وارد شده وجود ندارد.' });
+      return;
+    }
+
+    // بررسی تاریخ انقضا
+    const expiryTime = new Date(found.expiryDate).getTime();
+    if (Date.now() > expiryTime) {
+      res.status(401).json({ valid: false, error: 'مهلت استفاده از این لایسنس به پایان رسیده است.' });
+      return;
+    }
+
+    // تولید توکن JWT با کلید process.env.JWT_SECRET یا مقدار پیش‌فرض امن
+    const secret = process.env.JWT_SECRET || 'pes_tournament_live_monitor_super_secret_jwt_key_2026';
+    const token = jwt.sign(
+      {
+        licenseKey: found.key,
+        type: found.type,
+        clientName: found.clientName,
+        exp: Math.floor(expiryTime / 1000),
+      },
+      secret
+    );
+
+    res.json({
+      valid: true,
+      token,
+      type: found.type,
+      clientName: found.clientName,
+    });
+  } catch (err) {
+    console.error('Error verifying license:', err);
+    res.status(500).json({ valid: false, error: 'خطای داخلی سرور در بررسی لایسنس.' });
+  }
+});
 
 /**
  * ۱. روت عمومی ثبت دسته‌ای رویدادها

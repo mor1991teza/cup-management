@@ -1,6 +1,7 @@
 import React from 'react';
 import { Group, GroupStanding, Player, GameType } from '../types/tournament';
-import { Check, Shield } from 'lucide-react';
+import { Check, Shield, GitBranch } from 'lucide-react';
+import { sound } from '../utils/audio';
 
 interface GroupTableProps {
   group: Group;
@@ -11,6 +12,7 @@ interface GroupTableProps {
   advancementRule?: 'bestThirds' | 'proportional' | 'manual' | null;
   groupCount?: number;
   gameType?: GameType;
+  onSelectPlayer?: (playerId: string) => void;
 }
 
 export const GroupTable: React.FC<GroupTableProps> = ({
@@ -22,6 +24,7 @@ export const GroupTable: React.FC<GroupTableProps> = ({
   advancementRule,
   groupCount,
   gameType = 'pes',
+  onSelectPlayer,
 }) => {
   const isBilliards = gameType === 'billiards';
 
@@ -107,15 +110,26 @@ export const GroupTable: React.FC<GroupTableProps> = ({
                   <td className="py-2.5 px-2.5 sm:px-3">
                     <div className="flex flex-col justify-center">
                       <div className="flex items-center gap-1.5">
-                        <div className="font-semibold text-white flex items-center gap-1.5 truncate max-w-[100px] sm:max-w-[140px]">
-                          <span className="truncate">{isBilliards ? st.playerName.replace(/\s*\([^)]*\)/g, '').trim() : st.playerName}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sound.playClick();
+                            onSelectPlayer?.(st.playerId);
+                          }}
+                          className="font-semibold text-white flex items-center gap-1.5 truncate max-w-[120px] sm:max-w-[160px] text-right cursor-pointer hover:text-emerald-300 transition-colors group"
+                          title="مشاهده فلوچارت مسیر صعود بازیکن"
+                        >
+                          <span className="truncate group-hover:underline decoration-emerald-400/50 underline-offset-2">
+                            {isBilliards ? st.playerName.replace(/\s*\([^)]*\)/g, '').trim() : st.playerName}
+                          </span>
+                          <GitBranch className="w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 text-emerald-400 transition-opacity shrink-0" />
                           {isQualified && (
                             <span
                               title={isBilliards ? "سهمیه صعود به مرحله حذفی بیلیارد" : "سهمیه صعود به مرحله حذفی"}
                               className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_8px_rgba(52,211,153,0.8)] shrink-0"
                             />
                           )}
-                        </div>
+                        </button>
                         {!isBilliards && player?.team && (
                           <span className="text-[11px] text-slate-400 truncate max-w-[110px]">
                             ({player.team})

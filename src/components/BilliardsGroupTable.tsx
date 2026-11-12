@@ -1,5 +1,7 @@
 import React from 'react';
 import { Group, GroupStanding, Player } from '../types/tournament';
+import { GitBranch } from 'lucide-react';
+import { sound } from '../utils/audio';
 
 interface BilliardsGroupTableProps {
   group?: Group;
@@ -10,6 +12,7 @@ interface BilliardsGroupTableProps {
   title?: string;
   advancementRule?: 'bestThirds' | 'proportional' | 'manual';
   groupCount?: number;
+  onSelectPlayer?: (playerId: string) => void;
 }
 
 export const BilliardsGroupTable: React.FC<BilliardsGroupTableProps> = ({
@@ -21,6 +24,7 @@ export const BilliardsGroupTable: React.FC<BilliardsGroupTableProps> = ({
   title,
   advancementRule = 'bestThirds',
   groupCount,
+  onSelectPlayer,
 }) => {
   const displayTitle = groupCount === 1 ? 'جدول رده‌بندی لیگ بیلیارد' : (title || (group ? group.name : 'جدول رده‌بندی مسابقات بیلیارد'));
 
@@ -108,8 +112,17 @@ export const BilliardsGroupTable: React.FC<BilliardsGroupTableProps> = ({
                     <td className="py-2.5 px-2.5 sm:px-3">
                       <div className="flex flex-col justify-center">
                         <div className="flex items-center gap-1.5">
-                          <div className="font-bold text-white flex items-center gap-1.5 truncate max-w-[100px] sm:max-w-[140px]">
-                            <span className="truncate">{cleanName}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sound.playClick();
+                              onSelectPlayer?.(st.playerId);
+                            }}
+                            className="font-bold text-white flex items-center gap-1.5 truncate max-w-[120px] sm:max-w-[160px] text-right cursor-pointer hover:text-emerald-300 transition-colors group"
+                            title="مشاهده فلوچارت مسیر صعود بازیکن"
+                          >
+                            <span className="truncate group-hover:underline decoration-emerald-400/50 underline-offset-2">{cleanName}</span>
+                            <GitBranch className="w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 text-emerald-400 transition-opacity shrink-0" />
                             {isQualified && (
                               <span
                                 title={isBestThird ? 'سهمیه صعود به مرحله حذفی (تیم سوم برتر)' : 'سهمیه صعود به مرحله حذفی بیلیارد'}
@@ -120,7 +133,7 @@ export const BilliardsGroupTable: React.FC<BilliardsGroupTableProps> = ({
                                 }`}
                               />
                             )}
-                          </div>
+                          </button>
                         </div>
                         {playersMap.get(st.playerId)?.uniqueId && (
                           <div className="text-[10px] text-white font-mono truncate">

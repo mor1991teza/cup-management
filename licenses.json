@@ -1,0 +1,20 @@
+[
+  {
+    "key": "PES2021-FULL-987654321",
+    "type": "FULL",
+    "expiryDate": "2027-12-31T23:59:59Z",
+    "clientName": "گیم‌سنتر مرکزی"
+  },
+  {
+    "key": "CUP-BILIARD-2026-VIP",
+    "type": "FULL",
+    "expiryDate": "2027-12-31T23:59:59Z",
+    "clientName": "بیلیارد باشگاه تهران"
+  },
+  {
+    "key": "DEMO-2026-TESTKEY",
+    "type": "DEMO",
+    "expiryDate": "2026-12-31T23:59:59Z",
+    "clientName": "تست آزمایشی"
+  }
+]

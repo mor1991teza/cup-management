@@ -46,6 +46,7 @@ interface GroupStageViewProps {
   onAdvanceToKnockout: () => void;
   canAdvanceToKnockout: boolean;
   onOpenEditGroups: () => void;
+  onSelectPlayer?: (playerId: string) => void;
 }
 
 export const GroupStageView: React.FC<GroupStageViewProps> = ({
@@ -57,6 +58,7 @@ export const GroupStageView: React.FC<GroupStageViewProps> = ({
   onAdvanceToKnockout,
   canAdvanceToKnockout,
   onOpenEditGroups,
+  onSelectPlayer,
 }) => {
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('all');
   const [matchStatusFilter, setMatchStatusFilter] = useState<'all' | 'pending' | 'finished'>('all');
@@ -400,6 +402,7 @@ export const GroupStageView: React.FC<GroupStageViewProps> = ({
                 advancingPlayerIds={advancingPlayerIds}
                 advancementRule={state.advancementRule || 'bestThirds'}
                 groupCount={state.groups.length}
+                onSelectPlayer={onSelectPlayer}
               />
             ) : (
               <GroupTable
@@ -411,6 +414,7 @@ export const GroupStageView: React.FC<GroupStageViewProps> = ({
                 advancementRule={state.advancementRule}
                 groupCount={state.groups.length}
                 gameType={state.gameType || 'pes'}
+                onSelectPlayer={onSelectPlayer}
               />
             )
           ))}
@@ -521,6 +525,7 @@ export const GroupStageView: React.FC<GroupStageViewProps> = ({
                         isKnockout={false}
                         gameType={state.gameType || 'pes'}
                         billiardsFormat={state.billiardsFormat}
+                        onSelectPlayer={onSelectPlayer}
                       />
                     ))}
                   </div>

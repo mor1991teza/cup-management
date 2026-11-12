@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Crown,
   Flame,
+  GitBranch,
 } from 'lucide-react';
 import { sound } from '../utils/audio';
 
@@ -37,6 +38,7 @@ interface MatchCardProps {
   isKnockout?: boolean;
   gameType?: GameType;
   billiardsFormat?: BilliardsFormat;
+  onSelectPlayer?: (playerId: string) => void;
 }
 
 export const MatchCard: React.FC<MatchCardProps> = ({
@@ -49,6 +51,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   isKnockout = false,
   gameType = 'pes',
   billiardsFormat = 'bo3',
+  onSelectPlayer,
 }) => {
   const [homeScoreInput, setHomeScoreInput] = useState<string>(
     match.homeScore !== null ? String(match.homeScore) : ''
@@ -269,6 +272,88 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const isBo3Tied =
     bo3HomeScoreNum !== null && bo3AwayScoreNum !== null && bo3HomeScoreNum === bo3AwayScoreNum;
 
+  // Helper to render competitor slot with clickable progression path and TBD / Fixed stage support
+  const renderCompetitorName = (
+    player: Player | null | undefined,
+    seedLabel: string | undefined,
+    side: 'home' | 'away',
+    isWinner?: boolean | string | null
+  ) => {
+    if (player) {
+      const displayName = isBilliards
+        ? player.name.replace(/\s*\([^)]*\)/g, '').trim()
+        : player.name;
+
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            sound.playClick();
+            onSelectPlayer?.(player.id);
+          }}
+          className={`${
+            side === 'home' ? 'text-right justify-end' : 'text-left justify-start'
+          } truncate hover:text-emerald-400 transition-all duration-300 cursor-pointer group flex items-center gap-1.5 w-full animate-fade-in`}
+          title={`مشاهده مسیر صعود و سوابق مسابقات ${displayName}`}
+        >
+          {side === 'away' && (
+            <GitBranch className="w-3 h-3 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          )}
+          <span
+            className={`truncate underline-offset-4 group-hover:underline transition-colors ${
+              isWinner ? 'text-emerald-400 font-black' : 'text-white'
+            }`}
+          >
+            {displayName}
+          </span>
+          {side === 'home' && (
+            <GitBranch className="w-3 h-3 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          )}
+        </button>
+      );
+    }
+
+    // Player not yet assigned (Placeholder / TBD / Winner of Match X)
+    const isSemiOrFinal =
+      match.knockoutRound === 'semi' ||
+      match.knockoutRound === 'final' ||
+      match.knockoutRound === 'thirdPlace';
+
+    if (isSemiOrFinal) {
+      const fallbackLabel =
+        match.knockoutRound === 'final'
+          ? (side === 'home' ? 'برنده نیمه‌نهایی ۱' : 'برنده نیمه‌نهایی ۲')
+          : match.knockoutRound === 'thirdPlace'
+          ? (side === 'home' ? 'بازنده نیمه‌نهایی ۱' : 'بازنده نیمه‌نهایی ۲')
+          : (side === 'home' ? 'برنده بازی قبل ۱' : 'برنده بازی قبل ۲');
+
+      return (
+        <div
+          className={`${
+            side === 'home' ? 'text-right justify-end' : 'text-left justify-start'
+          } text-amber-300/80 text-xs font-semibold truncate flex items-center gap-1 w-full`}
+        >
+          {side === 'away' && <Sparkles className="w-3 h-3 text-amber-400/70 shrink-0" />}
+          <span className="truncate">{seedLabel || fallbackLabel}</span>
+          {side === 'home' && <Sparkles className="w-3 h-3 text-amber-400/70 shrink-0" />}
+        </div>
+      );
+    }
+
+    // Default TBD for redraw rounds (quarter, 16, 32, 64)
+    return (
+      <div
+        className={`${
+          side === 'home' ? 'text-right justify-end' : 'text-left justify-start'
+        } opacity-60 text-slate-400 font-mono text-xs italic truncate flex items-center gap-1.5 w-full`}
+      >
+        {side === 'home' && <span className="truncate">{seedLabel || 'TBD • در انتظار قرعه‌کشی'}</span>}
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-500 animate-pulse shrink-0" />
+        {side === 'away' && <span className="truncate">{seedLabel || 'TBD • در انتظار قرعه‌کشی'}</span>}
+      </div>
+    );
+  };
+
   // If this match is Best of 3 (Bo3 format - PES only)
   if (match.isBo3 && !isBilliards) {
     const winnerPlayer = match.winnerId ? playersMap.get(match.winnerId) : null;
@@ -335,16 +420,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         <div className="grid grid-cols-12 items-center gap-3 py-2">
           {/* Home Player */}
           <div className="col-span-5 text-right">
-            <div
-              className={`text-sm font-bold truncate ${
-                match.winnerId && match.winnerId === match.homePlayerId
-                  ? 'text-emerald-400 font-black'
-                  : 'text-white'
-              }`}
-            >
-              {homePlayer
-                ? (isBilliards ? homePlayer.name.replace(/\s*\([^)]*\)/g, '').trim() : homePlayer.name)
-                : match.homeSeedLabel || 'در انتظار تعیین'}
+            <div className="text-sm font-bold truncate">
+              {renderCompetitorName(homePlayer, match.homeSeedLabel, 'home', match.winnerId && match.winnerId === match.homePlayerId)}
             </div>
             {homePlayer?.uniqueId && (
               <div className="text-[11px] text-white font-mono truncate mt-0.5">
@@ -376,16 +453,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
           {/* Away Player */}
           <div className="col-span-5 text-left">
-            <div
-              className={`text-sm font-bold truncate ${
-                match.winnerId && match.winnerId === match.awayPlayerId
-                  ? 'text-emerald-400 font-black'
-                  : 'text-white'
-              }`}
-            >
-              {awayPlayer
-                ? (isBilliards ? awayPlayer.name.replace(/\s*\([^)]*\)/g, '').trim() : awayPlayer.name)
-                : match.awaySeedLabel || 'در انتظار تعیین'}
+            <div className="text-sm font-bold truncate">
+              {renderCompetitorName(awayPlayer, match.awaySeedLabel, 'away', match.winnerId && match.winnerId === match.awayPlayerId)}
             </div>
             {awayPlayer?.uniqueId && (
               <div className="text-[11px] text-white font-mono truncate mt-0.5">
@@ -672,16 +741,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         <div className="grid grid-cols-12 items-center gap-2">
           {/* Home Player */}
           <div className="col-span-4 text-right truncate">
-            <div
-              className={`text-xs font-bold truncate ${
-                match.winnerId && match.winnerId === match.homePlayerId
-                  ? 'text-app-primary font-black'
-                  : 'text-app-text'
-              }`}
-            >
-              {homePlayer
-                ? (isBilliards ? homePlayer.name.replace(/\s*\([^)]*\)/g, '').trim() : homePlayer.name)
-                : match.homeSeedLabel || 'در انتظار تعیین'}
+            <div className="text-xs font-bold truncate">
+              {renderCompetitorName(homePlayer, match.homeSeedLabel, 'home', match.winnerId && match.winnerId === match.homePlayerId)}
             </div>
             {homePlayer?.uniqueId && (
               <div className="text-[10px] text-white font-mono truncate">
@@ -803,16 +864,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
           {/* Away Player */}
           <div className="col-span-4 text-left truncate">
-            <div
-              className={`text-xs font-bold truncate ${
-                match.winnerId && match.winnerId === match.awayPlayerId
-                  ? isBilliards ? 'text-emerald-400 font-black' : 'text-rose-400 font-black'
-                  : 'text-slate-100'
-              }`}
-            >
-              {awayPlayer
-                ? (isBilliards ? awayPlayer.name.replace(/\s*\([^)]*\)/g, '').trim() : awayPlayer.name)
-                : match.awaySeedLabel || 'در انتظار تعیین'}
+            <div className="text-xs font-bold truncate">
+              {renderCompetitorName(awayPlayer, match.awaySeedLabel, 'away', match.winnerId && match.winnerId === match.awayPlayerId)}
             </div>
             {awayPlayer?.uniqueId && (
               <div className="text-[10px] text-white font-mono truncate">

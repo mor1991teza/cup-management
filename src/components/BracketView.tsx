@@ -4,7 +4,7 @@ import {
   Player,
   TournamentState,
 } from '../types/tournament';
-import { KNOCKOUT_ROUND_LABELS } from '../utils/tournament';
+import { KNOCKOUT_ROUND_LABELS, calculateKnockoutTree, getKnockoutRoundPersianLabel } from '../utils/tournament';
 import { MatchCard } from './MatchCard';
 import {
   Trophy,
@@ -19,6 +19,7 @@ import {
   Calendar,
   Clock,
   CircleDot,
+  Medal,
 } from 'lucide-react';
 import { sound } from '../utils/audio';
 
@@ -44,6 +45,7 @@ interface BracketViewProps {
   onOpenCelebrationModal?: () => void;
   onAdvanceKnockoutRound?: () => void;
   onOpenSingleGroupFinalDecision?: () => void;
+  onSelectPlayer?: (playerId: string) => void;
 }
 
 export const BracketView: React.FC<BracketViewProps> = ({
@@ -56,6 +58,7 @@ export const BracketView: React.FC<BracketViewProps> = ({
   onOpenCelebrationModal,
   onAdvanceKnockoutRound,
   onOpenSingleGroupFinalDecision,
+  onSelectPlayer,
 }) => {
   const isDirectKnockout =
     state.tournamentFormat === 'knockout_single' ||
@@ -149,12 +152,88 @@ export const BracketView: React.FC<BracketViewProps> = ({
     return !isFinalRound;
   }, [currentRoundMatches, isFinalRound]);
 
-  // Group matches by roundIndex
-  const maxRound = Math.max(...knockoutMatches.map((m) => m.roundIndex || 1), 1);
-  const roundsList: number[] = [];
-  for (let r = 1; r <= maxRound; r++) {
-    roundsList.push(r);
-  }
+  // Calculate total expected knockout rounds based on format & player count
+  const totalExpectedRounds = useMemo(() => {
+    if (state.tournamentFormat === 'group_knockout') {
+      const koCount = knockoutMatches.length;
+      if (koCount >= 15) return 4;
+      if (koCount >= 7) return 3;
+      if (koCount >= 3) return 2;
+      return Math.max(...knockoutMatches.map((m) => m.roundIndex || 1), 1);
+    }
+    const { totalRounds } = calculateKnockoutTree(state.players.length);
+    const maxExisting = Math.max(...knockoutMatches.map((m) => m.roundIndex || 1), 1);
+    return Math.max(totalRounds, maxExisting);
+  }, [state.tournamentFormat, state.players.length, knockoutMatches]);
+
+  const roundsList = useMemo(() => {
+    const list: number[] = [];
+    for (let r = 1; r <= totalExpectedRounds; r++) {
+      list.push(r);
+    }
+    return list;
+  }, [totalExpectedRounds]);
+
+  const getExpectedMatchesCount = (rIndex: number) => {
+    const roundsFromEnd = totalExpectedRounds - rIndex;
+    if (roundsFromEnd === 0) return 2; // Final + 3rd place
+    const teams = Math.pow(2, roundsFromEnd + 1);
+    return Math.max(1, teams / 2);
+  };
+
+  const getRoundTitleForRound = (rIndex: number, firstMatch?: Match) => {
+    if (firstMatch) {
+      return firstMatch.knockoutRoundLabel || firstMatch.roundLabel || `مرحله ${rIndex}`;
+    }
+    const roundsFromEnd = totalExpectedRounds - rIndex;
+    if (roundsFromEnd === 0) return 'فینال و رده‌بندی (مقام سوم)';
+    if (roundsFromEnd === 1) return 'نیمه‌نهایی (۴ تیم - ۲ مسابقه)';
+    const teams = Math.pow(2, roundsFromEnd + 1);
+    return getKnockoutRoundPersianLabel(teams);
+  };
+
+  const getPlaceholderMatchInfo = (rIndex: number, mIdx: number) => {
+    const roundsFromEnd = totalExpectedRounds - rIndex;
+    const isFinal = roundsFromEnd === 0;
+    const isSemi = roundsFromEnd === 1;
+
+    if (isFinal) {
+      if (mIdx === 0) {
+        return {
+          title: 'فینال قهرمانی 🏆',
+          isGold: true,
+          homeLabel: 'برنده نیمه‌نهایی ۱',
+          awayLabel: 'برنده نیمه‌نهایی ۲',
+          isFixed: true,
+        };
+      }
+      return {
+        title: 'رده‌بندی (مقام سوم) 🥉',
+        isBronze: true,
+        homeLabel: 'بازنده نیمه‌نهایی ۱',
+        awayLabel: 'بازنده نیمه‌نهایی ۲',
+        isFixed: true,
+      };
+    }
+
+    if (isSemi) {
+      return {
+        title: `نیمه‌نهایی - بازی ${mIdx + 1}`,
+        homeLabel: `برنده بازی ${mIdx * 2 + 1}`,
+        awayLabel: `برنده بازی ${mIdx * 2 + 2}`,
+        isFixed: true,
+      };
+    }
+
+    const teams = Math.pow(2, roundsFromEnd + 1);
+    const roundShort = getKnockoutRoundPersianLabel(teams).split('(')[0].trim();
+    return {
+      title: `بازی ${mIdx + 1} (${roundShort})`,
+      homeLabel: 'TBD • در انتظار قرعه‌کشی',
+      awayLabel: 'TBD • در انتظار قرعه‌کشی',
+      isRedraw: true,
+    };
+  };
 
   // Selected round filter for the 3-columns grid view
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<string>('all');
@@ -233,8 +312,16 @@ export const BracketView: React.FC<BracketViewProps> = ({
                       : 'قهرمان کاپ گروهی PES 2021'
                   )}
                 </span>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-0.5">
-                  {cleanPlayerName(championPlayer.name)}
+                <h2
+                  onClick={() => {
+                    sound.playClick();
+                    onSelectPlayer?.(championPlayer.id);
+                  }}
+                  className="text-2xl sm:text-3xl font-extrabold text-white mt-0.5 cursor-pointer hover:text-amber-300 transition-colors flex items-center gap-2 group"
+                  title="مشاهده مسیر صعود قهرمان"
+                >
+                  <span>{cleanPlayerName(championPlayer.name)}</span>
+                  <GitBranch className="w-5 h-5 text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </h2>
                 {!isBilliards && championPlayer.team && (
                   <p className="text-sm text-slate-300 mt-0.5">
@@ -247,9 +334,16 @@ export const BracketView: React.FC<BracketViewProps> = ({
             {/* Podium Details & Open Celebration Modal */}
             <div className="flex items-center gap-4 flex-wrap justify-center text-xs">
               {runnerUpPlayer && (
-                <div className={`px-4 py-2 ${
-                  isBilliards ? 'bg-[#062417]/90 border-emerald-700/60' : 'bg-slate-900/80 border-slate-700'
-                } border rounded-xl text-center flex items-center gap-2.5`}>
+                <div
+                  onClick={() => {
+                    sound.playClick();
+                    onSelectPlayer?.(runnerUpPlayer.id);
+                  }}
+                  className={`px-4 py-2 ${
+                    isBilliards ? 'bg-[#062417]/90 border-emerald-700/60' : 'bg-slate-900/80 border-slate-700'
+                  } border rounded-xl text-center flex items-center gap-2.5 cursor-pointer hover:border-slate-400 transition-colors group`}
+                  title="مشاهده مسیر صعود نایب قهرمان"
+                >
                   {runnerUpPlayer.avatarUrl && (
                     <img
                       src={runnerUpPlayer.avatarUrl}
@@ -259,15 +353,22 @@ export const BracketView: React.FC<BracketViewProps> = ({
                   )}
                   <div>
                     <span className={`text-[10px] ${isBilliards ? 'text-emerald-300/80' : 'text-slate-400'} block font-semibold`}>نایب قهرمان</span>
-                    <span className="text-slate-200 font-bold">{cleanPlayerName(runnerUpPlayer.name)}</span>
+                    <span className="text-slate-200 font-bold group-hover:text-emerald-300 transition-colors">{cleanPlayerName(runnerUpPlayer.name)}</span>
                   </div>
                 </div>
               )}
 
               {thirdPlayer && (
-                <div className={`px-4 py-2 ${
-                  isBilliards ? 'bg-[#062417]/90 border-emerald-700/60' : 'bg-slate-900/80 border-slate-700'
-                } border rounded-xl text-center flex items-center gap-2.5`}>
+                <div
+                  onClick={() => {
+                    sound.playClick();
+                    onSelectPlayer?.(thirdPlayer.id);
+                  }}
+                  className={`px-4 py-2 ${
+                    isBilliards ? 'bg-[#062417]/90 border-emerald-700/60' : 'bg-slate-900/80 border-slate-700'
+                  } border rounded-xl text-center flex items-center gap-2.5 cursor-pointer hover:border-amber-500/80 transition-colors group`}
+                  title="مشاهده مسیر صعود مقام سوم"
+                >
                   {thirdPlayer.avatarUrl && (
                     <img
                       src={thirdPlayer.avatarUrl}
@@ -277,7 +378,7 @@ export const BracketView: React.FC<BracketViewProps> = ({
                   )}
                   <div>
                     <span className="text-[10px] text-amber-500/80 block font-semibold">مقام سوم</span>
-                    <span className="text-slate-200 font-bold">{cleanPlayerName(thirdPlayer.name)}</span>
+                    <span className="text-slate-200 font-bold group-hover:text-amber-300 transition-colors">{cleanPlayerName(thirdPlayer.name)}</span>
                   </div>
                 </div>
               )}
@@ -512,12 +613,16 @@ export const BracketView: React.FC<BracketViewProps> = ({
 
             {roundsList.map((rIndex) => {
               const matchesInRound = displayedMatches.filter((m) => (m.roundIndex || 1) === rIndex);
-              if (matchesInRound.length === 0) return null;
+              const isFuture = matchesInRound.length === 0;
+              const matchesCount = isFuture ? getExpectedMatchesCount(rIndex) : matchesInRound.length;
+              if (matchesCount === 0) return null;
               const firstM = matchesInRound[0];
-              const roundLabel = firstM.knockoutRoundLabel || firstM.roundLabel || `مرحله ${rIndex}`;
+              const roundLabel = !isFuture && (firstM?.knockoutRoundLabel || firstM?.roundLabel)
+                ? (firstM.knockoutRoundLabel || firstM.roundLabel)
+                : getRoundTitleForRound(rIndex);
               const isSelected = selectedRoundFilter === String(rIndex);
               const isActive = activeRoundIndex === rIndex;
-              const isDone = matchesInRound.every((m) => m.isFinished);
+              const isDone = !isFuture && matchesInRound.every((m) => m.isFinished);
 
               return (
                 <button
@@ -532,14 +637,23 @@ export const BracketView: React.FC<BracketViewProps> = ({
                       ? 'bg-app-primary text-white shadow-sm ring-1 ring-app-primary'
                       : isActive
                       ? 'bg-app-primary/20 text-app-primary border border-app-primary/40'
+                      : isFuture
+                      ? 'bg-app-bg text-app-text-muted hover:text-app-text border border-dashed border-app-border opacity-70'
                       : 'bg-app-bg text-app-text-muted hover:text-app-text border border-app-border'
                   }`}
                 >
                   <span>{roundLabel}</span>
-                  <span className="text-[10px] opacity-80 font-mono">({matchesInRound.length})</span>
+                  <span className="text-[10px] opacity-80 font-mono">
+                    ({isFuture ? `${matchesCount} بازی TBD` : matchesInRound.length})
+                  </span>
                   {isDone && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
                   {isActive && !isDone && (
                     <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-ping" />
+                  )}
+                  {isFuture && (
+                    <span className="text-[9px] bg-slate-800 text-amber-400/90 px-1.5 py-0.2 rounded border border-slate-700 font-mono">
+                      TBD
+                    </span>
                   )}
                 </button>
               );
@@ -571,29 +685,35 @@ export const BracketView: React.FC<BracketViewProps> = ({
             }
 
             const matchesInRound = displayedMatches.filter((m) => (m.roundIndex || 1) === rIndex);
-            if (matchesInRound.length === 0) return null;
+            const isFuture = matchesInRound.length === 0;
+            const expectedCount = getExpectedMatchesCount(rIndex);
+            if (isFuture && expectedCount === 0) return null;
 
             const firstMatch = matchesInRound[0];
-            const roundTitle =
-              firstMatch.knockoutRoundLabel || firstMatch.roundLabel || `مرحله ${rIndex}`;
+            const roundTitle = !isFuture && (firstMatch?.knockoutRoundLabel || firstMatch?.roundLabel)
+              ? (firstMatch.knockoutRoundLabel || firstMatch.roundLabel)
+              : getRoundTitleForRound(rIndex);
             const isCurrentActive = activeRoundIndex === rIndex;
             const finishedInRound = matchesInRound.filter((m) => m.isFinished).length;
-            const isRoundDone = finishedInRound === matchesInRound.length;
+            const isRoundDone = !isFuture && finishedInRound === matchesInRound.length && matchesInRound.length > 0;
+            const isFinalRound = rIndex === totalExpectedRounds;
 
             return (
               <div
                 key={rIndex}
-                className="card-stadium p-5 sm:p-6 rounded-2xl border border-app-border bg-app-surface space-y-4"
+                className="card-stadium p-5 sm:p-6 rounded-2xl border border-app-border bg-app-surface space-y-4 animate-fade-in"
               >
                 {/* Round Header Bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-rose-950/70 pb-3">
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
-                        firstMatch.knockoutRound === 'final'
+                        isFinalRound
                           ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50'
                           : isCurrentActive
                           ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50'
+                          : isFuture
+                          ? 'bg-slate-900/80 text-slate-500 border border-dashed border-slate-700'
                           : 'bg-slate-800/60 text-slate-400 border border-slate-700'
                       }`}
                     >
@@ -601,7 +721,7 @@ export const BracketView: React.FC<BracketViewProps> = ({
                     </div>
 
                     <div>
-                      <h4 className="text-base font-extrabold text-white flex items-center gap-2">
+                      <h4 className="text-base font-extrabold text-white flex items-center gap-2 flex-wrap">
                         <span>{roundTitle}</span>
                         {isRoundDone && (
                           <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/40 font-normal">
@@ -613,47 +733,146 @@ export const BracketView: React.FC<BracketViewProps> = ({
                             مرحله در حال برگزاری
                           </span>
                         )}
+                        {isFuture && (
+                          <span className="text-[10px] bg-amber-500/15 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30 font-normal flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>در انتظار صعود و قرعه‌کشی (TBD)</span>
+                          </span>
+                        )}
                       </h4>
                       <p className="text-xs text-slate-400">
-                        {matchesInRound.length} مسابقه • {finishedInRound} مسابقه به پایان رسیده
+                        {isFuture
+                          ? `${expectedCount} مسابقه در این مرحله برگزار خواهد شد (نمایش جایگاه‌ها در حالت پیش‌نمایش)`
+                          : `${matchesInRound.length} مسابقه • ${finishedInRound} مسابقه به پایان رسیده`}
                       </p>
                     </div>
                   </div>
 
                   {/* Progress Indicator */}
-                  <div className="flex items-center gap-3 self-end sm:self-auto">
-                    <div className="text-left text-xs">
-                      <span className="font-mono text-white font-bold">{finishedInRound}</span>
-                      <span className="text-slate-500"> / </span>
-                      <span className="font-mono text-slate-400">{matchesInRound.length}</span>
+                  {!isFuture ? (
+                    <div className="flex items-center gap-3 self-end sm:self-auto">
+                      <div className="text-left text-xs">
+                        <span className="font-mono text-white font-bold">{finishedInRound}</span>
+                        <span className="text-slate-500"> / </span>
+                        <span className="font-mono text-slate-400">{matchesInRound.length}</span>
+                      </div>
+                      <div className="w-24 sm:w-32 bg-app-bg rounded-full h-2 overflow-hidden border border-app-border">
+                        <div
+                          className="bg-gradient-to-r from-app-primary to-emerald-400 h-full rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(finishedInRound / matchesInRound.length) * 100}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-24 sm:w-32 bg-app-bg rounded-full h-2 overflow-hidden border border-app-border">
-                      <div
-                        className="bg-gradient-to-r from-app-primary to-emerald-400 h-full rounded-full transition-all duration-300"
-                        style={{
-                          width: `${(finishedInRound / matchesInRound.length) * 100}%`,
-                        }}
-                      />
+                  ) : (
+                    <div className="flex items-center gap-2 self-end sm:self-auto text-xs text-slate-400 bg-slate-900/60 px-3 py-1 rounded-lg border border-slate-800">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{expectedCount} جایگاه مسابقه</span>
                     </div>
-                  </div>
+                  )}
                 </div>
 
-                {/* Matches Grid: Exactly 3 matches per row on desktop (grid-cols-1 md:grid-cols-2 lg:grid-cols-3) */}
+                {/* Matches Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5 pt-1">
-                  {matchesInRound.map((match) => (
-                    <MatchCard
-                      key={match.id}
-                      match={match}
-                      playersMap={playersMap}
-                      onSaveScore={onSaveScore}
-                      onSaveBo3Game={onSaveBo3Game}
-                      onQuickBo3Win={onQuickBo3Win}
-                      onResetScore={onResetScore}
-                      isKnockout={true}
-                      gameType={state.gameType || 'pes'}
-                      billiardsFormat={state.billiardsFormat}
-                    />
-                  ))}
+                  {!isFuture ? (
+                    matchesInRound.map((match) => (
+                      <MatchCard
+                        key={match.id}
+                        match={match}
+                        playersMap={playersMap}
+                        onSaveScore={onSaveScore}
+                        onSaveBo3Game={onSaveBo3Game}
+                        onQuickBo3Win={onQuickBo3Win}
+                        onResetScore={onResetScore}
+                        isKnockout={true}
+                        gameType={state.gameType || 'pes'}
+                        billiardsFormat={state.billiardsFormat}
+                        onSelectPlayer={onSelectPlayer}
+                      />
+                    ))
+                  ) : (
+                    Array.from({ length: expectedCount }).map((_, mIdx) => {
+                      const info = getPlaceholderMatchInfo(rIndex, mIdx);
+                      return (
+                        <div
+                          key={`future-${rIndex}-${mIdx}`}
+                          className="card-stadium p-4 rounded-xl border border-dashed border-app-border/80 bg-app-surface/40 hover:border-app-primary/40 transition-all opacity-85 hover:opacity-100 flex flex-col justify-between min-h-[175px] shadow-sm"
+                        >
+                          {/* Card Top */}
+                          <div className="flex items-center justify-between pb-2.5 border-b border-app-border/60 text-xs">
+                            <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                              {info.isGold ? (
+                                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                              ) : info.isBronze ? (
+                                <Medal className="w-3.5 h-3.5 text-amber-600" />
+                              ) : (
+                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                              )}
+                              <span>{info.title}</span>
+                            </span>
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold ${
+                                info.isFixed
+                                  ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+                              }`}
+                            >
+                              {info.isFixed ? 'صعود مستقیم' : 'TBD'}
+                            </span>
+                          </div>
+
+                          {/* Slots */}
+                          <div className="py-3 space-y-2">
+                            {/* Slot 1 */}
+                            <div
+                              className={`p-2.5 rounded-lg border flex items-center justify-between text-xs transition-colors ${
+                                info.isGold
+                                  ? 'bg-amber-950/20 border-amber-500/30 text-amber-200'
+                                  : 'bg-slate-900/60 border-slate-800 text-slate-400'
+                              }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-slate-600 inline-block" />
+                                <span className="font-medium">{info.homeLabel}</span>
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-500">—</span>
+                            </div>
+
+                            {/* VS */}
+                            <div className="text-center text-[10px] font-mono text-slate-600 font-bold tracking-wider">
+                              VS
+                            </div>
+
+                            {/* Slot 2 */}
+                            <div
+                              className={`p-2.5 rounded-lg border flex items-center justify-between text-xs transition-colors ${
+                                info.isGold
+                                  ? 'bg-amber-950/20 border-amber-500/30 text-amber-200'
+                                  : 'bg-slate-900/60 border-slate-800 text-slate-400'
+                              }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-slate-600 inline-block" />
+                                <span className="font-medium">{info.awayLabel}</span>
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-500">—</span>
+                            </div>
+                          </div>
+
+                          {/* Footer hint */}
+                          <div className="pt-2 border-t border-app-border/40 text-[10px] text-slate-500 text-center flex items-center justify-center gap-1">
+                            <GitBranch className="w-3 h-3 text-slate-600" />
+                            <span>
+                              {info.isFixed
+                                ? 'مشخص شدن خودکار برندگان پس از ثبت نتیجه نیمه‌نهایی'
+                                : 'قرعه‌کشی رندوم پس از اتمام مسابقات مرحله قبل'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             );
@@ -676,45 +895,81 @@ export const BracketView: React.FC<BracketViewProps> = ({
             <div className="grid grid-flow-col auto-cols-[320px] gap-8 items-start py-4">
               {roundsList.map((rIndex) => {
                 const matchesInRound = displayedMatches.filter((m) => (m.roundIndex || 1) === rIndex);
-                if (matchesInRound.length === 0) return null;
+                const isFuture = matchesInRound.length === 0;
+                const expectedCount = getExpectedMatchesCount(rIndex);
+                if (isFuture && expectedCount === 0) return null;
 
                 const firstMatch = matchesInRound[0];
-                const roundTitle =
-                  firstMatch.knockoutRoundLabel || firstMatch.roundLabel || `مرحله ${rIndex}`;
+                const roundTitle = !isFuture && (firstMatch?.knockoutRoundLabel || firstMatch?.roundLabel)
+                  ? (firstMatch.knockoutRoundLabel || firstMatch.roundLabel)
+                  : getRoundTitleForRound(rIndex);
                 const isCurrentActive = activeRoundIndex === rIndex;
+                const isFinalRound = rIndex === totalExpectedRounds;
 
                 return (
                   <div key={rIndex} className="space-y-4">
                     <div
                       className={`text-center font-bold text-xs py-2 px-3 rounded-xl border flex items-center justify-between ${
-                        firstMatch.knockoutRound === 'final'
+                        isFinalRound
                           ? 'bg-gradient-to-r from-amber-950 to-yellow-950 border-amber-500/80 text-amber-300'
                           : isCurrentActive
                           ? 'bg-app-primary/20 border-app-primary text-app-text ring-1 ring-app-primary/50'
+                          : isFuture
+                          ? 'bg-slate-900/60 border-dashed border-slate-700 text-slate-500'
                           : 'bg-app-surface border-app-border text-app-text-muted'
                       }`}
                     >
                       <span className="font-bold">{roundTitle}</span>
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-app-bg text-app-primary border border-app-border">
-                        {matchesInRound.length} مسابقه
+                        {isFuture ? `${expectedCount} مسابقه TBD` : `${matchesInRound.length} مسابقه`}
                       </span>
                     </div>
 
                     <div className="space-y-4">
-                      {matchesInRound.map((match) => (
-                        <MatchCard
-                          key={match.id}
-                          match={match}
-                          playersMap={playersMap}
-                          onSaveScore={onSaveScore}
-                          onSaveBo3Game={onSaveBo3Game}
-                          onQuickBo3Win={onQuickBo3Win}
-                          onResetScore={onResetScore}
-                          isKnockout={true}
-                          gameType={state.gameType || 'pes'}
-                          billiardsFormat={state.billiardsFormat}
-                        />
-                      ))}
+                      {!isFuture ? (
+                        matchesInRound.map((match) => (
+                          <MatchCard
+                            key={match.id}
+                            match={match}
+                            playersMap={playersMap}
+                            onSaveScore={onSaveScore}
+                            onSaveBo3Game={onSaveBo3Game}
+                            onQuickBo3Win={onQuickBo3Win}
+                            onResetScore={onResetScore}
+                            isKnockout={true}
+                            gameType={state.gameType || 'pes'}
+                            billiardsFormat={state.billiardsFormat}
+                            onSelectPlayer={onSelectPlayer}
+                          />
+                        ))
+                      ) : (
+                        Array.from({ length: expectedCount }).map((_, mIdx) => {
+                          const info = getPlaceholderMatchInfo(rIndex, mIdx);
+                          return (
+                            <div
+                              key={`tree-future-${rIndex}-${mIdx}`}
+                              className="p-3.5 rounded-xl border border-dashed border-app-border/80 bg-app-surface/40 text-xs space-y-2 opacity-80"
+                            >
+                              <div className="flex items-center justify-between text-[11px] font-bold text-slate-300 pb-1.5 border-b border-app-border/50">
+                                <span>{info.title}</span>
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                                  {info.isFixed ? 'صعود مستقیم' : 'TBD'}
+                                </span>
+                              </div>
+                              <div className="space-y-1.5 text-slate-400">
+                                <div className="p-1.5 rounded bg-slate-900/50 flex items-center justify-between">
+                                  <span>{info.homeLabel}</span>
+                                  <span className="font-mono text-slate-600">—</span>
+                                </div>
+                                <div className="p-1.5 rounded bg-slate-900/50 flex items-center justify-between">
+                                  <span>{info.awayLabel}</span>
+                                  <span className="font-mono text-slate-600">—</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 );

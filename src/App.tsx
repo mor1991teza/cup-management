@@ -38,7 +38,7 @@ import {
   saveTournamentToStorage,
 } from './utils/storage';
 import { sound } from './utils/audio';
-import { validateLicense, saveLicenseSecurely, readLicenseSecurely } from './utils/license'; // <--- ایمپورت‌های جدید
+import { verifyLicenseApi, saveLicenseTokenSecurely, readLicenseTokenSecurely } from './utils/license';
 import { trackEvent } from './utils/tracker'; // سیستم ردیابی لایو
 import { AdminLogin } from './components/admin/AdminLogin'; // صفحه ورود ادمین
 import { AdminDashboard } from './components/admin/AdminDashboard'; // داشبورد ادمین
@@ -61,6 +61,7 @@ import { PesSingleGroupDecisionModal } from './components/PesSingleGroupDecision
 import { PesSingleGroupTieModal } from './components/PesSingleGroupTieModal';
 import { BilliardsSingleGroupTieModal } from './components/BilliardsSingleGroupTieModal';
 import { BilliardsSingleGroupFinalDecisionModal } from './components/BilliardsSingleGroupFinalDecisionModal';
+import { PlayerProgressionModal } from './components/PlayerProgressionModal';
 import { MatchCard } from './components/MatchCard';
 
 import {
@@ -177,26 +178,20 @@ export default function App() {
   const [isPesSingleGroupDecisionModalOpen, setIsPesSingleGroupDecisionModalOpen] = useState(false);
   const [isBilliardsSingleGroupTieModalOpen, setIsBilliardsSingleGroupTieModalOpen] = useState(false);
   const [isBilliardsSingleGroupFinalDecisionModalOpen, setIsBilliardsSingleGroupFinalDecisionModalOpen] = useState(false);
+  const [selectedPlayerForProgression, setSelectedPlayerForProgression] = useState<string | null>(null);
   const [confirmedSecondPlaceId, setConfirmedSecondPlaceId] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
 
   const [resourcesPath, setResourcesPath] = useState<string>('');
 
-  // 🔴 بررسی لایسنس در زمان لود اپلیکیشن (با استفاده از لایه امنیتی جدید)
+  // 🔴 بررسی توکن لایسنس در لود اولیه
   useEffect(() => {
     const checkLicense = async () => {
-      const savedLicense = await readLicenseSecurely();
-      
-      if (savedLicense) {
-        const result = validateLicense(savedLicense);
-        if (result.isValid) {
-          setIsLocked(false);
-          setLicenseType(result.type || '');
-        } else {
-          setIsLocked(true);
-        }
+      const savedToken = await readLicenseTokenSecurely();
+      if (savedToken) {
+        setIsLocked(false);
       } else {
-        setIsLocked(true); // اگر لایسنسی وجود ندارد، قفل کن
+        setIsLocked(true);
       }
     };
     
@@ -232,16 +227,22 @@ export default function App() {
     });
   }, []);
 
-  // 🔴 فعال‌سازی لایسنس با ذخیره امن
+  // 🔴 فعال‌سازی لایسنس از طریق API سرور
   const handleActivateLicense = async () => {
-    const result = validateLicense(licenseInput);
+    setLicenseError('');
+    if (!licenseInput.trim()) {
+      setLicenseError('لطفاً کد لایسنس را وارد کنید.');
+      return;
+    }
+
+    const result = await verifyLicenseApi(licenseInput);
     
-    if (!result.isValid) {
+    if (!result.valid || !result.token) {
       setLicenseError(result.error || 'کد لایسنس نامعتبر است.');
       return;
     }
 
-    await saveLicenseSecurely(licenseInput);
+    await saveLicenseTokenSecurely(result.token);
     setIsLocked(false);
     setLicenseType(result.type || '');
     setLicenseError('');
@@ -2703,6 +2704,7 @@ export default function App() {
                       setIsPesSingleGroupDecisionModalOpen(true);
                     }
                   }}
+                  onSelectPlayer={setSelectedPlayerForProgression}
                 />
               ) : (
                 <GroupStageView
@@ -2714,6 +2716,7 @@ export default function App() {
                   onAdvanceToKnockout={handleAdvanceToKnockout}
                   canAdvanceToKnockout={canAdvanceToKnockout}
                   onOpenEditGroups={() => setIsEditGroupsOpen(true)}
+                  onSelectPlayer={setSelectedPlayerForProgression}
                 />
               )
             )}
@@ -2742,6 +2745,7 @@ export default function App() {
                     setIsPesSingleGroupDecisionModalOpen(true);
                   }
                 }}
+                onSelectPlayer={setSelectedPlayerForProgression}
               />
             )}
 
@@ -2950,6 +2954,14 @@ export default function App() {
           onSelectDirectByTable={handleBilliardsSelectDirectByTable}
         />
       )}
+
+      {/* مودال مسیر صعود (Progression Path Flowchart) */}
+      <PlayerProgressionModal
+        playerId={selectedPlayerForProgression}
+        onClose={() => setSelectedPlayerForProgression(null)}
+        state={state}
+        playersMap={playersMap}
+      />
 
       {/* Glassmorphic Operation Loading Overlay */}
       {loadingMessage && (
