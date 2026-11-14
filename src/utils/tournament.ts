@@ -827,6 +827,146 @@ export function syncDownstreamKnockoutMatches(
 }
 
 /**
+ * Reset a 3-way Play-in match (Game 1 & Game 2) and cascade the reset
+ * cleanly across all subsequent knockout rounds (clearing the old winner
+ * back to TBD, resetting any downstream match that had already been played
+ * with that winner, and preserving unaffected matches and results).
+ */
+export function resetPlayInMatchWithCascade(
+  matches: Match[],
+  matchId: string
+): {
+  updatedMatches: Match[];
+  adjustedRoundIndex?: number;
+} {
+  const matchToReset = matches.find((m) => m.id === matchId);
+  if (!matchToReset) {
+    return { updatedMatches: matches };
+  }
+
+  const oldWinnerId = matchToReset.winnerId || null;
+  const oldLoserId = matchToReset.loserId || null;
+
+  const resetMatch: Match = {
+    ...matchToReset,
+    homeScore: null,
+    awayScore: null,
+    homeGamesWon: 0,
+    awayGamesWon: 0,
+    isFinished: false,
+    hasPenalties: false,
+    homePenaltyScore: null,
+    awayPenaltyScore: null,
+    winnerId: null,
+    loserId: null,
+    games: [
+      { gameNumber: 1, homeScore: null, awayScore: null, winnerId: null, isFinished: false },
+      { gameNumber: 2, homeScore: null, awayScore: null, winnerId: null, isFinished: false },
+    ],
+    updatedAt: Date.now(),
+  };
+
+  let updatedMatches = matches.map((m) => (m.id === matchId ? resetMatch : m));
+
+  // 1. Standard downstream sync + propagation
+  updatedMatches = syncDownstreamKnockoutMatches(
+    updatedMatches,
+    resetMatch,
+    oldWinnerId,
+    oldLoserId
+  );
+  updatedMatches = propagateKnockoutResult(updatedMatches, matchId, null, null);
+
+  // 2. Defensive cascade: ensure no downstream knockout match remains finished
+  //    if either of its player slots became empty (TBD), or still holds oldWinnerId.
+  let passChanged = true;
+  while (passChanged) {
+    passChanged = false;
+    for (let i = 0; i < updatedMatches.length; i++) {
+      const m = updatedMatches[i];
+      if (m.stage !== 'knockout' || (m.roundIndex || 1) <= (resetMatch.roundIndex || 1)) {
+        continue;
+      }
+
+      const hasMissingSlot = !m.homePlayerId || !m.awayPlayerId;
+      const stillHasOldWinner =
+        Boolean(oldWinnerId) &&
+        (m.homePlayerId === oldWinnerId || m.awayPlayerId === oldWinnerId || m.winnerId === oldWinnerId);
+
+      if ((m.isFinished && hasMissingSlot) || stillHasOldWinner) {
+        const targetOldWinner = m.winnerId || null;
+        const targetOldLoser = m.loserId || null;
+
+        const cleanedTarget: Match = {
+          ...m,
+          homePlayerId: m.homePlayerId === oldWinnerId ? null : m.homePlayerId,
+          awayPlayerId: m.awayPlayerId === oldWinnerId ? null : m.awayPlayerId,
+          homeScore: m.isBo3 ? 0 : null,
+          awayScore: m.isBo3 ? 0 : null,
+          homeGamesWon: m.isBo3 ? 0 : undefined,
+          awayGamesWon: m.isBo3 ? 0 : undefined,
+          games: m.isBo3 ? [] : undefined,
+          isFinished: false,
+          hasPenalties: false,
+          homePenaltyScore: null,
+          awayPenaltyScore: null,
+          winnerId: null,
+          loserId: null,
+          updatedAt: Date.now(),
+        };
+
+        updatedMatches[i] = cleanedTarget;
+        if (targetOldWinner || targetOldLoser) {
+          updatedMatches = syncDownstreamKnockoutMatches(
+            updatedMatches,
+            cleanedTarget,
+            targetOldWinner,
+            targetOldLoser
+          );
+          updatedMatches = propagateKnockoutResult(updatedMatches, m.id, null, null);
+        }
+        passChanged = true;
+      }
+    }
+  }
+
+  // 3. Structural check: prune completely empty downstream rounds (>= 2)
+  //    from the tail if ALL matches in that round have no assigned players and no results,
+  //    preserving all unaffected matches and results.
+  const knockoutRounds = Array.from(
+    new Set(updatedMatches.filter((m) => m.stage === 'knockout').map((m) => m.roundIndex || 1))
+  ).sort((a, b) => b - a);
+
+  for (const rIdx of knockoutRounds) {
+    if (rIdx <= 1) break;
+    const roundMatches = updatedMatches.filter(
+      (m) => m.stage === 'knockout' && (m.roundIndex || 1) === rIdx
+    );
+    const allCompletelyEmpty =
+      roundMatches.length > 0 &&
+      roundMatches.every((m) => !m.isFinished && !m.homePlayerId && !m.awayPlayerId);
+
+    if (allCompletelyEmpty) {
+      updatedMatches = updatedMatches.filter(
+        (m) => !(m.stage === 'knockout' && (m.roundIndex || 1) === rIdx)
+      );
+    } else {
+      break;
+    }
+  }
+
+  const maxRemainingRound = Math.max(
+    1,
+    ...updatedMatches.filter((m) => m.stage === 'knockout').map((m) => m.roundIndex || 1)
+  );
+
+  return {
+    updatedMatches,
+    adjustedRoundIndex: maxRemainingRound,
+  };
+}
+
+/**
  * Synchronize initial unplayed knockout match participants if group matches are edited
  */
 export function syncKnockoutSeedsFromStandings(
@@ -998,6 +1138,11 @@ export function calculateKnockoutTree(playerCount: number): {
  * Returns descriptive Persian label for a knockout stage based on remaining teams
  */
 export function getKnockoutRoundPersianLabel(teamsCount: number): string {
+  if (teamsCount >= 128) {
+    const matches = Math.floor(teamsCount / 2);
+    const toFa = (n: number) => n.toLocaleString('fa-IR', { useGrouping: false });
+    return `مرحله ۱/${toFa(matches)} نهایی (${toFa(teamsCount)} تیم - ${toFa(matches)} مسابقه - صعود ${toFa(matches)} نفر)`;
+  }
   if (teamsCount >= 64) return 'مرحله ۱/۳۲ نهایی (۶۴ تیم - ۳۲ مسابقه - صعود ۳۲ نفر)';
   if (teamsCount >= 32) return 'مرحله ۱/۱۶ نهایی (۳۲ تیم - ۱۶ مسابقه - صعود ۱۶ نفر)';
   if (teamsCount >= 16) return 'یک‌هشتم نهایی (۱۶ تیم - ۸ مسابقه - صعود ۸ نفر)';
@@ -1023,6 +1168,82 @@ export function generateDirectKnockoutInitialMatches(
   totalRounds: number;
 } {
   const spread = spreadPlayersByUniqueId(players);
+  const is3WayPlayIn = players.length > 64 && players.length <= 128;
+
+  if (is3WayPlayIn) {
+    const extraCount = players.length - 64; // e.g., 78 - 64 = 14
+    const adjustedPlayers = avoidSelfMatches(spread, (p) => getPlayerUniqueId(p));
+    const round1Matches: Match[] = [];
+    const totalRounds = 6; // 32 matches base
+
+    let playerIndex = 0;
+    // 1. Create 3-way play-in matches (extraCount)
+    for (let i = 0; i < extraCount; i++) {
+      const p1 = adjustedPlayers[playerIndex++];
+      const p2 = adjustedPlayers[playerIndex++];
+      const p3 = adjustedPlayers[playerIndex++];
+      if (!p1 || !p2 || !p3) break;
+      const matchIndex = i + 1;
+
+      round1Matches.push({
+        id: `ko-r1-m${matchIndex}`,
+        stage: 'knockout',
+        roundIndex: 1,
+        roundLabel: `مرحله ۱ مقدماتی (Play-in)`,
+        knockoutRoundLabel: 'مقدماتی سه‌نفره (Play-in)',
+        knockoutMatchIndex: matchIndex,
+        homePlayerId: p1.id,
+        awayPlayerId: p2.id,
+        waitPlayerId: p3.id,
+        playInSlots: [p1.id, p2.id, p3.id],
+        isPlayIn3Way: true,
+        homeScore: null,
+        awayScore: null,
+        isFinished: false,
+        games: [
+          { gameNumber: 1, homeScore: null, awayScore: null, winnerId: null, isFinished: false },
+          { gameNumber: 2, homeScore: null, awayScore: null, winnerId: null, isFinished: false },
+        ],
+        bracketType: isDoubleElim ? 'winners' : 'single',
+      });
+    }
+
+    // 2. Create remaining standard 2-player matches (up to 32 matches total)
+    const standardMatchCount = 32 - extraCount;
+    for (let i = 0; i < standardMatchCount; i++) {
+      const p1 = adjustedPlayers[playerIndex++];
+      const p2 = adjustedPlayers[playerIndex++];
+      if (!p1 || !p2) break;
+      const matchIndex = extraCount + i + 1;
+      const roundLabel = getKnockoutRoundPersianLabel(64);
+
+      round1Matches.push({
+        id: `ko-r1-m${matchIndex}`,
+        stage: 'knockout',
+        roundIndex: 1,
+        roundLabel: `مرحله ۱ (${roundLabel})`,
+        knockoutRoundLabel: roundLabel,
+        knockoutMatchIndex: matchIndex,
+        homePlayerId: p1.id,
+        awayPlayerId: p2.id,
+        homeScore: isDoubleElim ? 0 : null,
+        awayScore: isDoubleElim ? 0 : null,
+        homeGamesWon: isDoubleElim ? 0 : undefined,
+        awayGamesWon: isDoubleElim ? 0 : undefined,
+        isFinished: false,
+        isBo3: isDoubleElim,
+        games: isDoubleElim ? [] : undefined,
+        bracketType: isDoubleElim ? 'winners' : 'single',
+      });
+    }
+
+    return {
+      matches: round1Matches,
+      byePlayerIds: [],
+      totalRounds,
+    };
+  }
+
   const { nextPowerOfTwo, numByes, totalRounds, playingCount } = calculateKnockoutTree(players.length);
 
   // بازیکنانی که استراحت دور اول (BYE) می‌گیرند و مستقیم به دور ۲ می‌روند

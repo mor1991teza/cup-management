@@ -28,6 +28,7 @@ import {
   propagateKnockoutResult,
   syncKnockoutSeedsFromStandings,
   syncDownstreamKnockoutMatches,
+  resetPlayInMatchWithCascade,
   isValidKnockoutCount,
   getKnockoutCountErrorMessage,
   autoAdvanceSemiFinalMatches,
@@ -180,6 +181,7 @@ export default function App() {
   const [isBilliardsSingleGroupFinalDecisionModalOpen, setIsBilliardsSingleGroupFinalDecisionModalOpen] = useState(false);
   const [selectedPlayerForProgression, setSelectedPlayerForProgression] = useState<string | null>(null);
   const [confirmedSecondPlaceId, setConfirmedSecondPlaceId] = useState<string | null>(null);
+  const [playInResetConfirmMatchId, setPlayInResetConfirmMatchId] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
 
   const [resourcesPath, setResourcesPath] = useState<string>('');
@@ -582,19 +584,31 @@ export default function App() {
       trackEvent('mode_knockout_enter', { format });
     }
 
-    setState((prev) => ({
-      ...prev,
-      tournamentFormat: format,
-      title:
-        format === 'group_knockout'
-          ? (prev.gameType === 'billiards' ? 'تورنمنت بیلیارد (گروهی + حذفی)' : 'کاپ گروهی PES 2021')
-          : format === 'knockout_single'
-          ? (prev.gameType === 'billiards' ? 'تورنمنت تک‌حذفی بیلیارد' : 'تورنمنت حذفی تک PES 2021')
-          : format === 'knockout_black'
-          ? (prev.gameType === 'billiards' ? 'تورنمنت حالت بلک بیلیارد' : 'تورنمنت حالت بلک PES 2021')
-          : (prev.gameType === 'billiards' ? 'تورنمنت دوحذفی بیلیارد' : 'تورنمنت حذفی دوگانه PES 2021'),
-      updatedAt: Date.now(),
-    }));
+    setState((prev) => {
+      let nextTargetPlayerCount = prev.targetPlayerCount;
+      if (format === 'knockout_double') {
+        if (prev.targetPlayerCount === undefined || prev.targetPlayerCount <= 64) {
+          nextTargetPlayerCount = 0; // نامحدود در حذفی دوگانه
+        }
+      } else if (prev.targetPlayerCount === 0 || (prev.targetPlayerCount && prev.targetPlayerCount > 128)) {
+        nextTargetPlayerCount = 32;
+      }
+
+      return {
+        ...prev,
+        tournamentFormat: format,
+        targetPlayerCount: nextTargetPlayerCount,
+        title:
+          format === 'group_knockout'
+            ? (prev.gameType === 'billiards' ? 'تورنمنت بیلیارد (گروهی + حذفی)' : 'کاپ گروهی PES 2021')
+            : format === 'knockout_single'
+            ? (prev.gameType === 'billiards' ? 'تورنمنت تک‌حذفی بیلیارد' : 'تورنمنت حذفی تک PES 2021')
+            : format === 'knockout_black'
+            ? (prev.gameType === 'billiards' ? 'تورنمنت حالت بلک بیلیارد' : 'تورنمنت حالت بلک PES 2021')
+            : (prev.gameType === 'billiards' ? 'تورنمنت دوحذفی بیلیارد' : 'تورنمنت حذفی دوگانه PES 2021'),
+        updatedAt: Date.now(),
+      };
+    });
   };
 
   const handleSetGameType = (gt: GameType) => {
@@ -1296,6 +1310,132 @@ export default function App() {
     }, 350);
   };
 
+  const handleSavePlayInGame = (
+    matchId: string,
+    gameNumber: number,
+    homeScore: number,
+    awayScore: number
+  ) => {
+    sound.playGoalSound();
+    setState((prev: TournamentState) => {
+      const targetMatch = prev.matches.find((m) => m.id === matchId);
+      const oldWinnerId = targetMatch?.winnerId || null;
+      const oldLoserId = targetMatch?.loserId || null;
+      let savedPlayInMatch: Match | null = null;
+
+      let updatedMatches: Match[] = prev.matches.map((m) => {
+        if (m.id !== matchId || !m.isPlayIn3Way) return m;
+
+        const games = [...(m.games || [
+          { gameNumber: 1, homeScore: null, awayScore: null, winnerId: null, isFinished: false },
+          { gameNumber: 2, homeScore: null, awayScore: null, winnerId: null, isFinished: false },
+        ])];
+
+        if (gameNumber === 1) {
+          const winnerId = (homeScore > awayScore ? m.homePlayerId : m.awayPlayerId) || null;
+          const loserId = (winnerId === m.homePlayerId ? m.awayPlayerId : m.homePlayerId) || null;
+          games[0] = {
+            gameNumber: 1,
+            homeScore,
+            awayScore,
+            winnerId,
+            isFinished: true,
+          };
+          const updated: Match = {
+            ...m,
+            games,
+            homeScore,
+            awayScore,
+            winnerId: null,
+            loserId,
+            updatedAt: Date.now(),
+          };
+          savedPlayInMatch = updated;
+          return updated;
+        } else if (gameNumber === 2) {
+          const game1WinnerId = games[0]?.winnerId || null;
+          const winnerId = (homeScore > awayScore ? game1WinnerId : m.waitPlayerId) || null;
+          const loserId = (winnerId === game1WinnerId ? m.waitPlayerId : game1WinnerId) || null;
+
+          games[1] = {
+            gameNumber: 2,
+            homeScore,
+            awayScore,
+            winnerId,
+            isFinished: true,
+          };
+
+          const updated: Match = {
+            ...m,
+            games,
+            homeScore,
+            awayScore,
+            winnerId,
+            loserId,
+            isFinished: true,
+            updatedAt: Date.now(),
+          };
+          savedPlayInMatch = updated;
+          return updated;
+        }
+
+        return m;
+      });
+
+      if (gameNumber === 2 && savedPlayInMatch) {
+        const finishedPlayIn = savedPlayInMatch as Match;
+        updatedMatches = syncDownstreamKnockoutMatches(
+          updatedMatches,
+          finishedPlayIn,
+          oldWinnerId,
+          oldLoserId
+        );
+        updatedMatches = propagateKnockoutResult(
+          updatedMatches,
+          matchId,
+          finishedPlayIn.winnerId || null,
+          finishedPlayIn.loserId || null
+        );
+      }
+
+      return {
+        ...prev,
+        matches: updatedMatches,
+        updatedAt: Date.now(),
+      };
+    });
+  };
+
+  const handleSwapPlayInSlot = (matchId: string, targetSlot: 'home' | 'away') => {
+    setState((prev: TournamentState) => {
+      const updatedMatches: Match[] = prev.matches.map((m) => {
+        if (m.id !== matchId || !m.isPlayIn3Way) return m;
+        const hId = m.homePlayerId || null;
+        const aId = m.awayPlayerId || null;
+        const wId = m.waitPlayerId || null;
+
+        if (targetSlot === 'home') {
+          return {
+            ...m,
+            homePlayerId: wId,
+            waitPlayerId: hId,
+            playInSlots: [wId, aId, hId],
+            updatedAt: Date.now(),
+          };
+        } else {
+          return {
+            ...m,
+            awayPlayerId: wId,
+            waitPlayerId: aId,
+            playInSlots: [hId, wId, aId],
+            updatedAt: Date.now(),
+          };
+        }
+      });
+      return { ...prev, matches: updatedMatches, updatedAt: Date.now() };
+    });
+  };
+
   const handleSaveScore = (
     matchId: string,
     homeScore: number,
@@ -1479,6 +1619,58 @@ export default function App() {
     setState((prev) => {
       const matchToReset = prev.matches.find((m) => m.id === matchId);
       if (!matchToReset) return prev;
+
+      if (matchToReset.isPlayIn3Way) {
+        const { updatedMatches, adjustedRoundIndex } = resetPlayInMatchWithCascade(
+          prev.matches,
+          matchId
+        );
+
+        let newChampionId = prev.championId;
+        let newRunnerUpId = prev.runnerUpId;
+        let newThirdPlaceId = prev.thirdPlaceId;
+        let newStatus = prev.status;
+
+        const finalMatch = updatedMatches.find(
+          (m) =>
+            m.stage === 'knockout' &&
+            (m.knockoutRound === 'final' ||
+              m.bracketType === 'grand_final' ||
+              m.roundLabel?.includes('فینال قهرمانی'))
+        );
+
+        if (!finalMatch || !finalMatch.isFinished || !finalMatch.winnerId) {
+          newChampionId = null;
+          newRunnerUpId = null;
+          if (prev.status === 'finished') {
+            newStatus = 'knockout';
+          }
+        } else {
+          newChampionId = finalMatch.winnerId;
+          newRunnerUpId = finalMatch.loserId || null;
+        }
+
+        const thirdMatch = updatedMatches.find((m) => m.knockoutRound === 'thirdPlace');
+        if (!thirdMatch || !thirdMatch.isFinished) {
+          newThirdPlaceId = null;
+        }
+
+        const nextRoundIndex =
+          adjustedRoundIndex !== undefined
+            ? Math.min(prev.currentKnockoutRoundIndex || 1, adjustedRoundIndex)
+            : prev.currentKnockoutRoundIndex;
+
+        return {
+          ...prev,
+          matches: updatedMatches,
+          currentKnockoutRoundIndex: nextRoundIndex,
+          championId: newChampionId,
+          runnerUpId: newRunnerUpId,
+          thirdPlaceId: newThirdPlaceId,
+          status: newStatus,
+          updatedAt: Date.now(),
+        };
+      }
 
       const oldWinnerId = matchToReset.winnerId || null;
       const oldLoserId = matchToReset.loserId || null;
@@ -2689,6 +2881,11 @@ export default function App() {
                   onQuickBo3Win={handleQuickBo3Win}
                   onResetScore={(matchId) => {
                     const m = state.matches.find((x) => x.id === matchId);
+                    if (m?.isPlayIn3Way) {
+                      sound.playClick();
+                      setPlayInResetConfirmMatchId(matchId);
+                      return;
+                    }
                     if (m?.isBo3 || state.tournamentFormat === 'knockout_double') {
                       handleResetBo3Match(matchId);
                     } else {
@@ -2705,6 +2902,8 @@ export default function App() {
                     }
                   }}
                   onSelectPlayer={setSelectedPlayerForProgression}
+                  onSavePlayInGame={handleSavePlayInGame}
+                  onSwapPlayInSlot={handleSwapPlayInSlot}
                 />
               ) : (
                 <GroupStageView
@@ -2730,6 +2929,11 @@ export default function App() {
                 onQuickBo3Win={handleQuickBo3Win}
                 onResetScore={(matchId) => {
                   const m = state.matches.find((x) => x.id === matchId);
+                  if (m?.isPlayIn3Way) {
+                    sound.playClick();
+                    setPlayInResetConfirmMatchId(matchId);
+                    return;
+                  }
                   if (m?.isBo3 || state.tournamentFormat === 'knockout_double') {
                     handleResetBo3Match(matchId);
                   } else {
@@ -2746,6 +2950,8 @@ export default function App() {
                   }
                 }}
                 onSelectPlayer={setSelectedPlayerForProgression}
+                onSavePlayInGame={handleSavePlayInGame}
+                onSwapPlayInSlot={handleSwapPlayInSlot}
               />
             )}
 
@@ -2806,6 +3012,64 @@ export default function App() {
         onClose={() => setIsResetModalOpen(false)}
         onConfirm={handleConfirmReset}
       />
+
+      {/* مودال تایید ریست مسابقه سه‌نفره (Play-in) و پاکسازی زنجیره‌ای مراحل بعدی */}
+      {playInResetConfirmMatchId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in" dir="rtl">
+          <div className="glass-modal w-full max-w-md rounded-3xl border border-rose-500/30 p-7 sm:p-8 shadow-2xl relative">
+            <button
+              type="button"
+              onClick={() => {
+                sound.playClick();
+                setPlayInResetConfirmMatchId(null);
+              }}
+              className="absolute top-5 left-5 text-slate-400 hover:text-white transition-colors cursor-pointer p-1 rounded-lg hover:bg-white/10"
+              title="بستن پنجره"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3.5 text-rose-400 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shrink-0 shadow-inner">
+                <AlertTriangle className="w-6 h-6 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">ریست نتیجه مسابقه سه‌نفره (Play-in)</h3>
+                <span className="text-xs text-rose-400/90 font-medium">پاکسازی زنجیره‌ای مراحل بعدی</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-200 leading-relaxed my-5 bg-rose-950/30 p-3.5 rounded-xl border border-rose-800/40">
+              با ریست این مسابقه، نتایج مراحل بعدی که برنده این بازی در آنها حضور داشته نیز پاک می‌شود. آیا مطمئن هستید؟
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setPlayInResetConfirmMatchId(null);
+                }}
+                className="btn-secondary-glass px-5 py-2.5 text-xs font-semibold rounded-xl cursor-pointer"
+              >
+                انصراف
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  const targetId = playInResetConfirmMatchId;
+                  setPlayInResetConfirmMatchId(null);
+                  handleResetScore(targetId);
+                }}
+                className="px-5 py-2.5 text-xs font-bold rounded-xl cursor-pointer bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-950/60 transition-colors"
+              >
+                بله، ریست شود
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* مودال تایید بازسازی براکت مرحله حذفی */}
       {isKnockoutRebuildModalOpen && (

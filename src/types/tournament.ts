@@ -79,6 +79,9 @@ export interface Match {
   awaySourceMatchId?: string;
   homeLoserSourceMatchId?: string;
   awayLoserSourceMatchId?: string;
+  isPlayIn3Way?: boolean;
+  waitPlayerId?: string | null;
+  playInSlots?: [string | null, string | null, string | null];
 }
 
 export interface GroupStanding {

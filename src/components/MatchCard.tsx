@@ -39,6 +39,13 @@ interface MatchCardProps {
   gameType?: GameType;
   billiardsFormat?: BilliardsFormat;
   onSelectPlayer?: (playerId: string) => void;
+  onSavePlayInGame?: (
+    matchId: string,
+    gameNumber: number,
+    homeScore: number,
+    awayScore: number
+  ) => void;
+  onSwapPlayInSlot?: (matchId: string, targetSlot: 'home' | 'away') => void;
 }
 
 export const MatchCard: React.FC<MatchCardProps> = ({
@@ -52,6 +59,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   gameType = 'pes',
   billiardsFormat = 'bo3',
   onSelectPlayer,
+  onSavePlayInGame,
+  onSwapPlayInSlot,
 }) => {
   const [homeScoreInput, setHomeScoreInput] = useState<string>(
     match.homeScore !== null ? String(match.homeScore) : ''
@@ -272,6 +281,29 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const isBo3Tied =
     bo3HomeScoreNum !== null && bo3AwayScoreNum !== null && bo3HomeScoreNum === bo3AwayScoreNum;
 
+  // Play-in 3-Way local state (hoisted to top level to obey Rules of Hooks)
+  const playInGame1 = match.games?.[0] || { gameNumber: 1, homeScore: null, awayScore: null, winnerId: null, isFinished: false };
+  const playInGame2 = match.games?.[1] || { gameNumber: 2, homeScore: null, awayScore: null, winnerId: null, isFinished: false };
+  const [g1Home, setG1Home] = useState<string>(playInGame1.homeScore !== null ? String(playInGame1.homeScore) : '');
+  const [g1Away, setG1Away] = useState<string>(playInGame1.awayScore !== null ? String(playInGame1.awayScore) : '');
+  const [g2Home, setG2Home] = useState<string>(playInGame2.homeScore !== null ? String(playInGame2.homeScore) : '');
+  const [g2Away, setG2Away] = useState<string>(playInGame2.awayScore !== null ? String(playInGame2.awayScore) : '');
+
+  useEffect(() => {
+    setG1Home(playInGame1.homeScore !== null ? String(playInGame1.homeScore) : '');
+    setG1Away(playInGame1.awayScore !== null ? String(playInGame1.awayScore) : '');
+    setG2Home(playInGame2.homeScore !== null ? String(playInGame2.homeScore) : '');
+    setG2Away(playInGame2.awayScore !== null ? String(playInGame2.awayScore) : '');
+  }, [
+    match.id,
+    playInGame1.homeScore,
+    playInGame1.awayScore,
+    playInGame1.isFinished,
+    playInGame2.homeScore,
+    playInGame2.awayScore,
+    playInGame2.isFinished,
+  ]);
+
   // Helper to render competitor slot with clickable progression path and TBD / Fixed stage support
   const renderCompetitorName = (
     player: Player | null | undefined,
@@ -354,8 +386,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
     );
   };
 
-  // If this match is Best of 3 (Bo3 format - PES only)
-  if (match.isBo3 && !isBilliards) {
+  // If this match is Best of 3 (Bo3 format - PES only, excluding 3-way Play-in)
+  if (match.isBo3 && !match.isPlayIn3Way && !isBilliards) {
     const winnerPlayer = match.winnerId ? playersMap.get(match.winnerId) : null;
     const homeGamesWon = match.homeGamesWon || 0;
     const awayGamesWon = match.awayGamesWon || 0;
@@ -677,6 +709,183 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             )}
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (match.isPlayIn3Way) {
+    const game1 = playInGame1;
+    const game2 = playInGame2;
+
+    const homePlayer = match.homePlayerId ? playersMap.get(match.homePlayerId) : undefined;
+    const awayPlayer = match.awayPlayerId ? playersMap.get(match.awayPlayerId) : undefined;
+    const waitPlayer = match.waitPlayerId ? playersMap.get(match.waitPlayerId) : undefined;
+    const g1Winner = game1.winnerId ? playersMap.get(game1.winnerId) : undefined;
+    const finalWinner = match.winnerId ? playersMap.get(match.winnerId) : undefined;
+
+    return (
+      <div className="card-stadium rounded-2xl p-5 border border-amber-500/30 bg-gradient-to-b from-slate-900/90 to-slate-950/90 shadow-xl text-app-text space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2 text-xs pb-3 border-b border-white/10">
+          <span className="font-extrabold text-amber-300 flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <span>مسابقه مقدماتی سه‌نفره (Play-in 3-Way)</span>
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            {(game1.isFinished || game2.isFinished || match.isFinished) && onResetScore && (
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  onResetScore(match.id);
+                }}
+                className="flex items-center gap-1 text-[11px] text-rose-300 hover:text-white px-2.5 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-800/80 border border-rose-700/60 transition-colors cursor-pointer"
+                title="ریست نتیجه مسابقه سه‌نفره"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>ریست نتیجه</span>
+              </button>
+            )}
+            <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-500/40 font-mono">
+              {match.isFinished ? 'تکمیل شده' : 'در جریان'}
+            </span>
+          </div>
+        </div>
+
+        {/* Slot Swapping (Before Game 1 started) */}
+        {!game1.isFinished && onSwapPlayInSlot && (
+          <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800 text-xs flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-slate-400 font-medium">جابجایی اسلات ۳ (منتظر ⭐):</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => { sound.playClick(); onSwapPlayInSlot(match.id, 'home'); }}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold cursor-pointer transition-colors"
+                title="جایگزینی اسلات ۳ با اسلات ۱"
+              >
+                سوییچ با اسلات ۱ ({homePlayer?.name || 'میزبان'})
+              </button>
+              <button
+                type="button"
+                onClick={() => { sound.playClick(); onSwapPlayInSlot(match.id, 'away'); }}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold cursor-pointer transition-colors"
+                title="جایگزینی اسلات ۳ با اسلات ۲"
+              >
+                سوییچ با اسلات ۲ ({awayPlayer?.name || 'مهمان'})
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Game 1 Section */}
+        <div className="p-3.5 bg-slate-950/80 rounded-xl border border-white/10 space-y-3">
+          <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+            <span>بازی اول: {homePlayer?.name || 'اسلات ۱'} vs {awayPlayer?.name || 'اسلات ۲'}</span>
+            {game1.isFinished && (
+              <span className="text-emerald-400 text-[11px]">برنده: {g1Winner?.name}</span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-white font-medium truncate max-w-[90px]">{homePlayer?.name}</span>
+              <input
+                type="number"
+                min="0"
+                value={g1Home}
+                onChange={(e) => setG1Home(e.target.value)}
+                disabled={game1.isFinished}
+                className="w-12 h-9 text-center font-mono font-black text-base rounded-lg border border-slate-700 bg-black/60 text-white outline-none focus:border-amber-400 disabled:opacity-60"
+              />
+            </div>
+            <span className="text-slate-500 font-bold">:</span>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min="0"
+                value={g1Away}
+                onChange={(e) => setG1Away(e.target.value)}
+                disabled={game1.isFinished}
+                className="w-12 h-9 text-center font-mono font-black text-base rounded-lg border border-slate-700 bg-black/60 text-white outline-none focus:border-amber-400 disabled:opacity-60"
+              />
+              <span className="text-xs text-white font-medium truncate max-w-[90px]">{awayPlayer?.name}</span>
+            </div>
+          </div>
+
+          {!game1.isFinished && (
+            <button
+              type="button"
+              disabled={g1Home === '' || g1Away === '' || Number(g1Home) === Number(g1Away)}
+              onClick={() => {
+                if (g1Home === '' || g1Away === '' || Number(g1Home) === Number(g1Away)) return;
+                sound.playGoalSound();
+                onSavePlayInGame?.(match.id, 1, parseInt(g1Home, 10), parseInt(g1Away, 10));
+              }}
+              className="w-full py-2 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-bold text-xs rounded-lg cursor-pointer hover:from-amber-400 hover:to-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              ثبت نتیجه بازی اول
+            </button>
+          )}
+        </div>
+
+        {/* Game 2 Section (Play-in Final against Wait Player) */}
+        <div className={`p-3.5 rounded-xl border space-y-3 transition-all ${game1.isFinished ? 'bg-slate-950/80 border-amber-500/40' : 'bg-slate-950/40 border-white/5 opacity-50'}`}>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+            <span className="flex items-center gap-1.5">
+              <span>بازی دوم (فینال مقدماتی): {g1Winner?.name || 'برنده بازی اول'} vs اسلات ۳ (منتظر ⭐ {waitPlayer?.name})</span>
+            </span>
+            {game2.isFinished && (
+              <span className="text-emerald-400 text-[11px]">صعودکننده نهایی: {finalWinner?.name}</span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-amber-300 font-medium truncate max-w-[90px]">{g1Winner?.name || 'برنده بازی ۱'}</span>
+              <input
+                type="number"
+                min="0"
+                value={g2Home}
+                onChange={(e) => setG2Home(e.target.value)}
+                disabled={!game1.isFinished || game2.isFinished}
+                className="w-12 h-9 text-center font-mono font-black text-base rounded-lg border border-slate-700 bg-black/60 text-white outline-none focus:border-amber-400"
+              />
+            </div>
+            <span className="text-slate-500 font-bold">:</span>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min="0"
+                value={g2Away}
+                onChange={(e) => setG2Away(e.target.value)}
+                disabled={!game1.isFinished || game2.isFinished}
+                className="w-12 h-9 text-center font-mono font-black text-base rounded-lg border border-slate-700 bg-black/60 text-white outline-none focus:border-amber-400"
+              />
+              <span className="text-xs text-amber-400 font-medium truncate max-w-[90px]">⭐ {waitPlayer?.name || 'منتظر'}</span>
+            </div>
+          </div>
+
+          {game1.isFinished && !game2.isFinished && (
+            <button
+              type="button"
+              disabled={g2Home === '' || g2Away === '' || Number(g2Home) === Number(g2Away)}
+              onClick={() => {
+                if (g2Home === '' || g2Away === '' || Number(g2Home) === Number(g2Away)) return;
+                sound.playGoalSound();
+                onSavePlayInGame?.(match.id, 2, parseInt(g2Home, 10), parseInt(g2Away, 10));
+              }}
+              className="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs rounded-lg cursor-pointer hover:from-emerald-400 hover:to-teal-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              ثبت نتیجه بازی دوم و تعیین صعودکننده نهایی 🏆
+            </button>
+          )}
+
+          {!game1.isFinished && (
+            <div className="text-center text-[11px] text-slate-500">
+              برای فعال‌سازی بازی دوم، ابتدا باید نتیجه بازی اول ثبت شود.
+            </div>
+          )}
+        </div>
       </div>
     );
   }

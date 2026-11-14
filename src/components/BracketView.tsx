@@ -46,6 +46,13 @@ interface BracketViewProps {
   onAdvanceKnockoutRound?: () => void;
   onOpenSingleGroupFinalDecision?: () => void;
   onSelectPlayer?: (playerId: string) => void;
+  onSavePlayInGame?: (
+    matchId: string,
+    gameNumber: number,
+    homeScore: number,
+    awayScore: number
+  ) => void;
+  onSwapPlayInSlot?: (matchId: string, targetSlot: 'home' | 'away') => void;
 }
 
 export const BracketView: React.FC<BracketViewProps> = ({
@@ -59,6 +66,8 @@ export const BracketView: React.FC<BracketViewProps> = ({
   onAdvanceKnockoutRound,
   onOpenSingleGroupFinalDecision,
   onSelectPlayer,
+  onSavePlayInGame,
+  onSwapPlayInSlot,
 }) => {
   const isDirectKnockout =
     state.tournamentFormat === 'knockout_single' ||
@@ -161,10 +170,13 @@ export const BracketView: React.FC<BracketViewProps> = ({
       if (koCount >= 3) return 2;
       return Math.max(...knockoutMatches.map((m) => m.roundIndex || 1), 1);
     }
-    const { totalRounds } = calculateKnockoutTree(state.players.length);
+    const isPlayInRange = state.players.length > 64 && state.players.length <= 128;
+    const totalRounds =
+      state.totalKnockoutRounds ||
+      (isPlayInRange ? 6 : calculateKnockoutTree(state.players.length).totalRounds);
     const maxExisting = Math.max(...knockoutMatches.map((m) => m.roundIndex || 1), 1);
     return Math.max(totalRounds, maxExisting);
-  }, [state.tournamentFormat, state.players.length, knockoutMatches]);
+  }, [state.tournamentFormat, state.players.length, state.totalKnockoutRounds, knockoutMatches]);
 
   const roundsList = useMemo(() => {
     const list: number[] = [];
@@ -789,6 +801,8 @@ export const BracketView: React.FC<BracketViewProps> = ({
                         gameType={state.gameType || 'pes'}
                         billiardsFormat={state.billiardsFormat}
                         onSelectPlayer={onSelectPlayer}
+                        onSavePlayInGame={onSavePlayInGame}
+                        onSwapPlayInSlot={onSwapPlayInSlot}
                       />
                     ))
                   ) : (
@@ -940,6 +954,8 @@ export const BracketView: React.FC<BracketViewProps> = ({
                             gameType={state.gameType || 'pes'}
                             billiardsFormat={state.billiardsFormat}
                             onSelectPlayer={onSelectPlayer}
+                            onSavePlayInGame={onSavePlayInGame}
+                            onSwapPlayInSlot={onSwapPlayInSlot}
                           />
                         ))
                       ) : (

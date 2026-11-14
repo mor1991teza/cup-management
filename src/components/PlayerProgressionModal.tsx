@@ -56,7 +56,7 @@ export const PlayerProgressionModal: React.FC<PlayerProgressionModalProps> = ({
 
   // 1. All matches played by this player
   const playerMatches = state.matches.filter(
-    (m) => m.homePlayerId === playerId || m.awayPlayerId === playerId
+    (m) => m.homePlayerId === playerId || m.awayPlayerId === playerId || m.waitPlayerId === playerId
   );
 
   // Group matches vs Knockout matches
@@ -151,7 +151,10 @@ export const PlayerProgressionModal: React.FC<PlayerProgressionModalProps> = ({
   }
 
   // Knockout stages calculation
-  const { totalRounds } = calculateKnockoutTree(state.players.length);
+  const isPlayInRange = state.players.length > 64 && state.players.length <= 128;
+  const totalRounds =
+    state.totalKnockoutRounds ||
+    (isPlayInRange ? 6 : calculateKnockoutTree(state.players.length).totalRounds);
   const activeRoundIndex = state.currentKnockoutRoundIndex || 1;
 
   // Track each knockout round

@@ -99,9 +99,12 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
   const [pesImgFailed, setPesImgFailed] = useState(false);
   const [billiardsImgFailed, setBilliardsImgFailed] = useState(false);
 
-  const maxCapacity = targetPlayerCount || 32;
-  const isCapacityReached = selectedGameType === 'pes' && players.length >= maxCapacity;
-  const remainingSlots = Math.max(0, maxCapacity - players.length);
+  const isDoubleElimFormat = tournamentFormat === 'knockout_double';
+  const isUnlimitedCapacity = isDoubleElimFormat && targetPlayerCount === 0;
+  const maxCapacity = isUnlimitedCapacity ? 0 : (targetPlayerCount || 32);
+  const isCapacityReached = !isUnlimitedCapacity && selectedGameType === 'pes' && players.length >= maxCapacity;
+  const remainingSlots = isUnlimitedCapacity ? Infinity : Math.max(0, maxCapacity - players.length);
+  const presetBatchCount = isUnlimitedCapacity ? 16 : Math.min(16, maxCapacity);
 
   useEffect(() => {
     if (gameType) {
@@ -235,17 +238,42 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
     return isValidKnockoutCount(totalAdvancing) && !hasAnyGroupOverflow;
   }, [numberOfGroups, threeGroupMode, hasAnyGroupOverflow, players.length, totalAdvancing]);
 
-  // محاسبه مراحل صعود استاندارد از مرحله ۱/۳۲ نهایی (۶۴ تیم - ۳۲ مسابقه - صعود ۳۲ نفر) تا فینال قهرمانی
+  // محاسبه مراحل صعود استاندارد از مرحله ۱/۳۲ نهایی (یا بالاتر برای بیش از ۱۲۸ نفر در حذفی دوگانه) تا فینال قهرمانی
   const progressionStages = useMemo(() => {
-    return [
-      { label: 'مرحله ۱/۳۲ نهایی', teams: 64, matches: 32, advance: 32 },
+    const isPlayInRange = players.length > 64 && players.length <= 128;
+    const baseStages = [
+      {
+        label: isPlayInRange ? `مقدماتی Play-in (${players.length - 64} بازی سه‌نفره)` : 'مرحله ۱/۳۲ نهایی',
+        teams: 64,
+        matches: 32,
+        advance: 32,
+      },
       { label: 'مرحله ۱/۱۶ نهایی', teams: 32, matches: 16, advance: 16 },
       { label: 'یک‌هشتم نهایی', teams: 16, matches: 8, advance: 8 },
       { label: 'یک‌چهارم نهایی', teams: 8, matches: 4, advance: 4 },
       { label: 'نیمه‌نهایی', teams: 4, matches: 2, advance: 2 },
       { label: 'فینال قهرمانی', teams: 2, matches: 1, advance: 1 },
     ];
-  }, []);
+
+    if (tournamentFormat === 'knockout_double' && players.length > 128) {
+      const { nextPowerOfTwo } = calculateKnockoutTree(players.length);
+      const extraStages: Array<{ label: string; teams: number; matches: number; advance: number }> = [];
+      let teams = nextPowerOfTwo;
+      while (teams > 64) {
+        const matches = teams / 2;
+        extraStages.push({
+          label: `مرحله ۱/${matches.toLocaleString('fa-IR', { useGrouping: false })} نهایی`,
+          teams,
+          matches,
+          advance: matches,
+        });
+        teams = teams / 2;
+      }
+      return [...extraStages, ...baseStages];
+    }
+
+    return baseStages;
+  }, [tournamentFormat, players.length]);
 
   // 🔴 تابع کمکی برای نرمال‌سازی نام‌ها (حذف فاصله‌های اضافی و یکسان‌سازی حروف)
   const normalizeName = (name: string) => {
@@ -400,7 +428,7 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
     let namesToAdd = uniqueNames;
     let capacityHitNotice = false;
 
-    if (selectedGameType === 'pes' && players.length + uniqueNames.length > maxCapacity) {
+    if (!isUnlimitedCapacity && selectedGameType === 'pes' && players.length + uniqueNames.length > maxCapacity) {
       const allowedCount = Math.max(0, maxCapacity - players.length);
       if (allowedCount === 0) {
         sound.playClick();
@@ -963,7 +991,7 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                   تعیین سقف ظرفیت شرکت‌کنندگان کاپ PES:
                 </span>
                 <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-full bg-app-bg text-app-primary border border-app-border">
-                  {maxCapacity} نفر
+                  {isUnlimitedCapacity ? 'نامحدود (بالای ۶۴ نفر)' : `${maxCapacity} نفر`}
                 </span>
               </div>
 
@@ -973,9 +1001,13 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                   ثبت‌نام‌شده:
                 </span>
                 <span className="font-mono font-bold text-app-text">
-                  {players.length} از {maxCapacity}
+                  {isUnlimitedCapacity ? `${players.length} نفر` : `${players.length} از ${maxCapacity}`}
                 </span>
-                {isCapacityReached ? (
+                {isUnlimitedCapacity ? (
+                  <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-950/60 text-emerald-300 border border-emerald-800/60">
+                    ظرفیت باز (بدون محدودیت)
+                  </span>
+                ) : isCapacityReached ? (
                   <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-rose-950/80 text-rose-300 border border-rose-800/80 animate-pulse">
                     ⛔ ظرفیت تکمیل شد
                   </span>
@@ -992,7 +1024,23 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
               <span className="text-app-text-muted text-[11px] shrink-0">
                 انتخاب سریع ظرفیت:
               </span>
-              {[8, 16, 24, 32, 48, 64].map((count) => (
+              {isDoubleElimFormat && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    onSetTargetPlayerCount?.(0);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                    isUnlimitedCapacity
+                      ? 'bg-app-primary text-white shadow-md ring-1 ring-app-primary/50'
+                      : 'bg-app-bg text-app-text-muted hover:text-app-text border border-app-border hover:border-app-border-hover'
+                  }`}
+                >
+                  نامحدود
+                </button>
+              )}
+              {(isDoubleElimFormat ? [8, 16, 24, 32, 48, 64, 96, 128] : [8, 16, 24, 32, 48, 64]).map((count) => (
                 <button
                   key={count}
                   type="button"
@@ -1001,7 +1049,7 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                     onSetTargetPlayerCount?.(count);
                   }}
                   className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                    maxCapacity === count
+                    !isUnlimitedCapacity && maxCapacity === count
                       ? 'bg-app-primary text-white shadow-md ring-1 ring-app-primary/50'
                       : 'bg-app-bg text-app-text-muted hover:text-app-text border border-app-border hover:border-app-border-hover'
                   }`}
@@ -1016,15 +1064,20 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                 <input
                   type="number"
                   min="2"
-                  max="128"
-                  value={maxCapacity}
+                  max={isDoubleElimFormat ? undefined : 128}
+                  placeholder={isUnlimitedCapacity ? 'نامحدود' : undefined}
+                  value={isUnlimitedCapacity ? '' : maxCapacity}
                   onChange={(e) => {
+                    if (isDoubleElimFormat && e.target.value === '') {
+                      onSetTargetPlayerCount?.(0);
+                      return;
+                    }
                     const val = parseInt(e.target.value, 10);
-                    if (!isNaN(val) && val >= 2 && val <= 128) {
+                    if (!isNaN(val) && val >= 2 && (isDoubleElimFormat || val <= 128)) {
                       onSetTargetPlayerCount?.(val);
                     }
                   }}
-                  className="w-16 h-8 text-center bg-app-bg border border-app-border focus:border-app-primary rounded-lg text-xs font-mono font-bold text-app-text outline-none"
+                  className="w-20 h-8 text-center bg-app-bg border border-app-border focus:border-app-primary rounded-lg text-xs font-mono font-bold text-app-text outline-none"
                 />
                 <span className="text-[11px] text-app-text-muted">نفر</span>
               </div>
@@ -2101,7 +2154,9 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                      <span>مسیر صعود مرحله‌به‌مرحله (شروع از مرحله ۱/۳۲ نهایی):</span>
+                      <span>
+                        مسیر صعود مرحله‌به‌مرحله (شروع از {progressionStages[0]?.label || 'مرحله ۱/۳۲ نهایی'}):
+                      </span>
                     </span>
                     <span className="text-[11px] font-mono text-rose-400 font-bold">
                       {players.length} بازیکن ثبت‌شده
@@ -2138,7 +2193,15 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                     </div>
 
                     <div className="text-[10px] text-slate-300 bg-black/50 p-2 rounded-lg border border-slate-800 leading-relaxed">
-                      ⚡ <strong>مسیر صعود:</strong> مسابقات از مرحله ۱/۳۲ نهایی (۶۴ تیم / ۳۲ مسابقه) آغاز می‌شود؛ ۳۲ برنده به ۱/۱۶ نهایی صعود می‌کنند و پس از هر مرحله اسامی صعودکنندگان با قرعه‌کشی تصادفی (Fisher-Yates) جفت می‌شوند تا فینال.
+                      {progressionStages[0]?.teams > 64 ? (
+                        <>
+                          ⚡ <strong>مسیر صعود:</strong> مسابقات از {progressionStages[0].label} ({progressionStages[0].teams} تیم / {progressionStages[0].matches} مسابقه) آغاز می‌شود؛ {progressionStages[0].advance} نفر به {progressionStages[1]?.label} صعود می‌کنند و پس از هر مرحله اسامی صعودکنندگان با قرعه‌کشی تصادفی (Fisher-Yates) جفت می‌شوند تا فینال.
+                        </>
+                      ) : (
+                        <>
+                          ⚡ <strong>مسیر صعود:</strong> مسابقات از مرحله ۱/۳۲ نهایی (۶۴ تیم / ۳۲ مسابقه) آغاز می‌شود؛ ۳۲ برنده به ۱/۱۶ نهایی صعود می‌کنند و پس از هر مرحله اسامی صعودکنندگان با قرعه‌کشی تصادفی (Fisher-Yates) جفت می‌شوند تا فینال.
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2245,21 +2308,44 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                       {players.length} نفر
                     </span>
                   </div>
-                  {players.length >= 2 && (
-                    <>
-                      <div className="flex justify-between text-slate-400">
-                        <span>ساختار براکت و مراحل:</span>
-                        <span className="font-mono tabular-nums text-slate-200">
-                          {calculateKnockoutTree(players.length).nextPowerOfTwo} تیمی ({calculateKnockoutTree(players.length).totalRounds} مرحله تا فینال)
-                        </span>
-                      </div>
-                      {calculateKnockoutTree(players.length).numByes > 0 && (
-                        <div className="text-[11px] text-amber-300 bg-amber-950/40 p-2 rounded border border-amber-800/60 leading-relaxed">
-                          💡 <strong>استراحت دور اول (BYE):</strong> با توجه به ثبت‌نام {players.length} بازیکن، به قید قرعه <strong>{calculateKnockoutTree(players.length).numByes} بازیکن</strong> در دور اول استراحت دارند و مستقیم به مرحله ۱/۱۶ نهایی صعود می‌کنند تا جدول متوازن گردد.
+                  {players.length >= 2 && (() => {
+                    if (players.length > 64 && players.length <= 128) {
+                      const extraCount = players.length - 64;
+                      const standardCount = 32 - extraCount;
+                      return (
+                        <>
+                          <div className="flex justify-between text-slate-400">
+                            <span>ساختار براکت و مراحل:</span>
+                            <span className="font-mono tabular-nums text-amber-300 font-bold">
+                              ۶۴ جایگاه با {extraCount} بازی سه‌نفره Play-in (۶ مرحله تا فینال)
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-amber-300 bg-amber-950/40 p-2 rounded border border-amber-800/60 leading-relaxed">
+                            🎮 <strong>مقدماتی سه‌نفره (Play-in):</strong> با ثبت‌نام {players.length} بازیکن، در مرحله اول <strong>{extraCount} مستطیل سه‌نفره</strong> و <strong>{standardCount} مسابقه دونفره</strong> (مجموعاً ۳۲ مسابقه بدون BYE) ساخته می‌شود تا ۳۲ برنده به مرحله ۱/۱۶ نهایی صعود کنند.
+                          </div>
+                        </>
+                      );
+                    }
+
+                    const tree = calculateKnockoutTree(players.length);
+                    const round2Teams = Math.max(2, tree.nextPowerOfTwo / 2);
+                    const round2ShortLabel = getKnockoutRoundPersianLabel(round2Teams).split('(')[0].trim();
+                    return (
+                      <>
+                        <div className="flex justify-between text-slate-400">
+                          <span>ساختار براکت و مراحل:</span>
+                          <span className="font-mono tabular-nums text-slate-200">
+                            {tree.nextPowerOfTwo} تیمی ({tree.totalRounds} مرحله تا فینال)
+                          </span>
                         </div>
-                      )}
-                    </>
-                  )}
+                        {tree.numByes > 0 && (
+                          <div className="text-[11px] text-amber-300 bg-amber-950/40 p-2 rounded border border-amber-800/60 leading-relaxed">
+                            💡 <strong>استراحت دور اول (BYE):</strong> با توجه به ثبت‌نام {players.length} بازیکن، به قید قرعه <strong>{tree.numByes} بازیکن</strong> در دور اول استراحت دارند و مستقیم به {round2ShortLabel} صعود می‌کنند تا جدول متوازن گردد.
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -2318,12 +2404,12 @@ export const PlayerForm: React.FC<PlayerFormProps> = ({
                 type="button"
                 onClick={() => {
                   sound.playClick();
-                  onLoadPresets(PRESET_PLAYERS.slice(0, Math.min(16, maxCapacity)));
+                  onLoadPresets(PRESET_PLAYERS.slice(0, presetBatchCount));
                 }}
                 className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 bg-amber-950/40 hover:bg-amber-950/70 border border-amber-800/60 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>بارگذاری نمونه بازیکنان ({Math.min(16, maxCapacity)} بازیکن)</span>
+                <span>بارگذاری نمونه بازیکنان ({presetBatchCount} بازیکن)</span>
               </button>
             )}
 
